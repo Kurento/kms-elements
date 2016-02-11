@@ -38,6 +38,11 @@
           "name": "position",
           "doc": "Get or set the actual position of the video in ms. Only for seekable videos",
           "type": "int64"
+        },
+        {
+          "name": "latency",
+          "doc": "Get or set the desired RTP buffer latency in ms. Only for RTP videos",
+          "type": "int64"
         }
       ],
       "methods": [
