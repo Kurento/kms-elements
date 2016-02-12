@@ -29,6 +29,7 @@
 #define AUDIO_APPSRC "audio_appsrc"
 #define VIDEO_APPSRC "video_appsrc"
 #define URIDECODEBIN "uridecodebin"
+#define RTSPSRC "rtspsrc"
 
 #define APPSRC_DATA "appsrc_data"
 #define APPSINK_DATA "appsink_data"
@@ -1049,6 +1050,18 @@ source_setup_cb (GstElement * uridecodebin, GstElement * source,
 }
 
 static void
+element_added (GstBin * bin, GstElement * element, gpointer data)
+{
+  KmsPlayerEndpoint *self = KMS_PLAYER_ENDPOINT (data);
+
+  if (g_strcmp0 (gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(gst_element_get_factory(element))), RTSPSRC) == 0) {
+    gint64 latency = 0;
+    g_object_get(G_OBJECT(self), "latency", &latency, NULL);
+    g_object_set (G_OBJECT (element), "latency", 50, NULL);
+  }
+}
+
+static void
 kms_player_endpoint_init (KmsPlayerEndpoint * self)
 {
   GstBus *bus;
@@ -1072,6 +1085,8 @@ kms_player_endpoint_init (KmsPlayerEndpoint * self)
       G_CALLBACK (pad_removed), self);
   g_signal_connect (self->priv->uridecodebin, "source-setup",
       G_CALLBACK (source_setup_cb), self);
+  g_signal_connect (self->priv->uridecodebin, "element-added",
+      G_CALLBACK (element_added), self);
 
   g_object_set (self->priv->uridecodebin, "download", TRUE, NULL);
 
