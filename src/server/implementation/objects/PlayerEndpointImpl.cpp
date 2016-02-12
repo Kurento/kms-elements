@@ -16,6 +16,7 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define VIDEO_DATA "video-data"
 #define POSITION "position"
 #define SET_POSITION "set-position"
+#define LATENCY "latency"
 #define NS_TO_MS 1000000
 
 namespace kurento
@@ -148,6 +149,20 @@ void PlayerEndpointImpl::setPosition (int64_t position)
   if (!ret) {
     throw KurentoException (PLAYER_SEEK_FAIL, "Seek fails");
   }
+}
+
+int64_t PlayerEndpointImpl::getLatency ()
+{
+  int64_t latency;
+
+  g_object_get (G_OBJECT (element), LATENCY, &latency, NULL);
+
+  return latency;
+}
+
+void PlayerEndpointImpl::setLatency (int64_t latency)
+{
+  g_object_set (G_OBJECT (element), LATENCY, latency, NULL);
 }
 
 void PlayerEndpointImpl::play ()

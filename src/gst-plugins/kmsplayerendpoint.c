@@ -61,6 +61,7 @@ struct _KmsPlayerEndpointPrivate
   GstElement *uridecodebin;
   KmsLoop *loop;
   gboolean use_encoded_media;
+  gint64 latency;
   GMutex base_time_lock;
 
   KmsPlayerStats stats;
@@ -72,6 +73,7 @@ enum
   PROP_USE_ENCODED_MEDIA,
   PROP_VIDEO_DATA,
   PROP_POSITION,
+  PROP_LATENCY,
   N_PROPERTIES
 };
 
@@ -117,6 +119,10 @@ kms_player_endpoint_set_property (GObject * object, guint property_id,
       if (playerendpoint->priv->use_encoded_media) {
         kms_player_endpoint_set_caps (playerendpoint);
       }
+      break;
+    }
+    case PROP_LATENCY:{
+      playerendpoint->priv->latency = g_value_get_int64 (value);
       break;
     }
     default:
@@ -184,6 +190,10 @@ kms_player_endpoint_get_property (GObject * object, guint property_id,
       }
 
       g_value_set_int64 (value, position);
+      break;
+    }
+    case PROP_LATENCY:{
+      g_value_set_int64 (value, playerendpoint->priv->latency);
       break;
     }
     default:
@@ -885,6 +895,11 @@ kms_player_endpoint_class_init (KmsPlayerEndpointClass * klass)
           "Playing position in the file as miliseconds",
           0, G_MAXINT64, 0, G_PARAM_READABLE | GST_PARAM_MUTABLE_READY));
 
+  g_object_class_install_property (gobject_class, PROP_LATENCY,
+      g_param_spec_int64 ("latency", "The RTP buffer latency",
+          "The about of RTP data to buffer in milliseconds",
+          0, G_MAXINT64, 2000, G_PARAM_READWRITE | GST_PARAM_MUTABLE_READY));
+
   kms_player_endpoint_signals[SIGNAL_EOS] =
       g_signal_new ("eos",
       G_TYPE_FROM_CLASS (klass),
@@ -1055,9 +1070,7 @@ element_added (GstBin * bin, GstElement * element, gpointer data)
   KmsPlayerEndpoint *self = KMS_PLAYER_ENDPOINT (data);
 
   if (g_strcmp0 (gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(gst_element_get_factory(element))), RTSPSRC) == 0) {
-    gint64 latency = 0;
-    g_object_get(G_OBJECT(self), "latency", &latency, NULL);
-    g_object_set (G_OBJECT (element), "latency", 50, NULL);
+    g_object_set (G_OBJECT (element), "latency", self->priv->latency, NULL);
   }
 }
 

@@ -34,6 +34,9 @@ public:
   virtual int64_t getPosition();
   virtual void setPosition (int64_t position);
 
+  virtual int64_t getLatency();
+  virtual void setLatency (int64_t position);
+
   /* Next methods are automatically implemented by code generator */
   virtual bool connect (const std::string &eventType,
                         std::shared_ptr<EventHandler> handler);
