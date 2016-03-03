@@ -1070,7 +1070,9 @@ element_added (GstBin * bin, GstElement * element, gpointer data)
   KmsPlayerEndpoint *self = KMS_PLAYER_ENDPOINT (data);
 
   if (g_strcmp0 (gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(gst_element_get_factory(element))), RTSPSRC) == 0) {
-    if (self->priv->latency != 0) g_object_set (G_OBJECT (element), "latency", self->priv->latency, NULL);
+    if (self->priv->latency != 0) {
+      g_object_set (G_OBJECT (element), "latency", self->priv->latency, NULL);
+    }
   }
 }
 

@@ -23,7 +23,7 @@ public:
 
   PlayerEndpointImpl (const boost::property_tree::ptree &conf,
                       std::shared_ptr<MediaPipeline> mediaPipeline, const std::string &uri,
-                      bool useEncodedMedia);
+                      bool useEncodedMedia, int latency);
 
   virtual ~PlayerEndpointImpl ();
 

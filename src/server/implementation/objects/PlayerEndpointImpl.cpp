@@ -81,12 +81,14 @@ void PlayerEndpointImpl::postConstructor()
 PlayerEndpointImpl::PlayerEndpointImpl (const boost::property_tree::ptree &conf,
                                         std::shared_ptr<MediaPipeline>
                                         mediaPipeline, const std::string &uri,
-                                        bool useEncodedMedia) : UriEndpointImpl (conf,
+                                        bool useEncodedMedia,
+                                        int latency) : UriEndpointImpl (conf,
                                               std::dynamic_pointer_cast<MediaObjectImpl> (mediaPipeline), FACTORY_NAME, uri)
 {
   GstElement *element = getGstreamerElement();
 
   g_object_set (G_OBJECT (element), "use-encoded-media", useEncodedMedia, NULL);
+  g_object_set (G_OBJECT (element), "latency", latency, NULL);
 }
 
 PlayerEndpointImpl::~PlayerEndpointImpl()
@@ -174,9 +176,10 @@ MediaObjectImpl *
 PlayerEndpointImplFactory::createObject (const boost::property_tree::ptree
     &conf,
     std::shared_ptr<MediaPipeline> mediaPipeline, const std::string &uri,
-    bool useEncodedMedia) const
+    bool useEncodedMedia,
+    int latency) const
 {
-  return new PlayerEndpointImpl (conf, mediaPipeline, uri, useEncodedMedia);
+  return new PlayerEndpointImpl (conf, mediaPipeline, uri, useEncodedMedia, latency);
 }
 
 PlayerEndpointImpl::StaticConstructor PlayerEndpointImpl::staticConstructor;
