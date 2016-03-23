@@ -20,7 +20,11 @@
             },
             {
               "name": "mediaProfile",
+<<<<<<< HEAD
               "doc": "Choose either a :rom:attr:`MediaProfileSpecType.WEBM`, a :rom:attr:`MediaProfileSpecType.MP4`, or a :rom:attr:`MediaProfileSpecType.JPEG` profile for recording",
+=======
+              "doc": "Choose either one of the values defined in :rom:attr:`MediaProfileSpecType` as profile for recording",
+>>>>>>> upstream/master
               "type": "MediaProfileSpecType",
               "optional": true,
               "defaultValue": "WEBM"
@@ -39,8 +43,38 @@
           "name": "record",
           "doc": "Starts storing media received through the :rom:cls:`MediaSink` pad",
           "params": []
+        },
+        {
+          "name": "stopAndWait",
+          "doc": "Stops recording and do not returns until all the content has bee written to the selected uri. This can cause timeouts on some clients if there is too much content to write and/or the transport is slow",
+          "params": []
         }
+      ],
+      "events": [
+        "Recording",
+        "Paused",
+        "Stopped"
       ]
+    }
+  ],
+  "events": [
+    {
+      "name": "Recording",
+      "extends": "Media",
+      "doc": "Raised when the recoding effectively starts. ie: Media is received by the recorder once record method has been called.",
+      "properties": []
+    },
+    {
+      "name": "Paused",
+      "extends": "Media",
+      "doc": "Raised when the recorder goes to pause state",
+      "properties": []
+    },
+    {
+      "name": "Stopped",
+      "extends": "Media",
+      "doc": "Raised when the recorder has been stopped and all the media has been written to storage.",
+      "properties": []
     }
   ]
 }

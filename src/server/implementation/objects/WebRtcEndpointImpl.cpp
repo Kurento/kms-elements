@@ -6,6 +6,7 @@
 #include <KurentoException.hpp>
 #include <boost/filesystem.hpp>
 #include <IceCandidate.hpp>
+#include "IceCandidatePair.hpp"
 #include <webrtcendpoint/kmsicecandidate.h>
 #include <IceComponentState.hpp>
 #include <SignalHandler.hpp>
@@ -26,6 +27,9 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define GST_DEFAULT_NAME "KurentoWebRtcEndpointImpl"
 
 #define FACTORY_NAME "webrtcendpoint"
+
+#define CONFIG_PATH "configPath"
+#define DEFAULT_PATH "/etc/kurento"
 
 namespace kurento
 {
@@ -103,6 +107,23 @@ check_support_for_h264 ()
   gst_object_unref (plugin);
 }
 
+void WebRtcEndpointImpl::checkUri (std::string &uri)
+{
+  //Check if uri is an absolute or relative path.
+  if (! boost::starts_with (uri, "/") ) {
+    std::string path;
+
+    try {
+      path = getConfigValue <std::string, WebRtcEndpoint> (CONFIG_PATH);
+    } catch (boost::property_tree::ptree_error &e) {
+      GST_DEBUG ("WebRtcEndpoint config file doesn't contain a defaul path");
+      path = getConfigValue <std::string> (CONFIG_PATH, DEFAULT_PATH);
+    }
+
+    uri = path + "/" + uri;
+  }
+}
+
 void WebRtcEndpointImpl::onIceCandidate (gchar *sessId,
     KmsIceCandidate *candidate)
 {
@@ -177,6 +198,45 @@ void WebRtcEndpointImpl::onIceComponentStateChanged (gchar *sessId,
   }
 }
 
+void WebRtcEndpointImpl::newSelectedPairFull (gchar *sessId,
+    const gchar *streamId,
+    guint componentId, KmsIceCandidate *localCandidate,
+    KmsIceCandidate *remoteCandidate)
+{
+  std::shared_ptr<IceCandidatePair > candidatePair;
+  std::string key;
+  std::map<std::string, std::shared_ptr <IceCandidatePair>>::iterator it;
+
+  GST_DEBUG_OBJECT (element,
+                    "New pair selected stream_id: %s, component_id: %d, local candidate: %s,"
+                    " remote candidate: %s", streamId, componentId,
+                    kms_ice_candidate_get_candidate (localCandidate),
+                    kms_ice_candidate_get_candidate (remoteCandidate) );
+
+  candidatePair = std::make_shared< IceCandidatePair > (streamId,
+                  componentId,
+                  kms_ice_candidate_get_candidate (localCandidate),
+                  kms_ice_candidate_get_candidate (remoteCandidate) );
+  key = streamId + '_' + componentId;
+
+  it = candidatePairs.find (key);
+
+  if (it != candidatePairs.end() ) {
+    candidatePairs.erase (it);
+  }
+
+  candidatePairs.insert (std::pair
+                         <std::string, std::shared_ptr <IceCandidatePair>> (key, candidatePair) );
+
+  try {
+    NewCandidatePairSelected event (shared_from_this(),
+                                    NewCandidatePairSelected::getName(), candidatePair);
+
+    signalNewCandidatePairSelected (event);
+  } catch (std::bad_weak_ptr &e) {
+  }
+}
+
 void
 WebRtcEndpointImpl::onDataChannelOpened (gchar *sessId, guint stream_id)
 {
@@ -228,6 +288,16 @@ void WebRtcEndpointImpl::postConstructor ()
                                       std::dynamic_pointer_cast<WebRtcEndpointImpl>
                                       (shared_from_this() ) );
 
+  handlerNewSelectedPairFull = register_signal_handler (G_OBJECT (element),
+                               "new-selected-pair-full",
+                               std::function
+                               <void (GstElement *, gchar *, gchar *, guint, KmsIceCandidate *, KmsIceCandidate *) >
+                               (std::bind (&WebRtcEndpointImpl::newSelectedPairFull, this,
+                                   std::placeholders::_2, std::placeholders::_3, std::placeholders::_4,
+                                   std::placeholders::_5, std::placeholders::_6) ),
+                               std::dynamic_pointer_cast<WebRtcEndpointImpl>
+                               (shared_from_this() ) );
+
   handlerOnDataChannelOpened = register_signal_handler (G_OBJECT (element),
                                "data-channel-opened",
                                std::function <void (GstElement *, gchar *, guint) >
@@ -255,6 +325,8 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
   uint stunPort;
   std::string stunAddress;
   std::string turnURL;
+  std::string pemUri;
+  std::string pemCertificate;
 
   if (useDataChannels) {
     g_object_set (element, "use-data-channels", TRUE, NULL);
@@ -265,9 +337,9 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
   //set properties
   try {
     stunPort = getConfigValue <uint, WebRtcEndpoint> ("stunServerPort");
-  } catch (boost::property_tree::ptree_error &e) {
-    GST_INFO ("Setting default port %d to stun server",
-              DEFAULT_STUN_PORT);
+  } catch (std::exception &e) {
+    GST_INFO ("Setting default port %d to stun server. Reason: %s",
+              DEFAULT_STUN_PORT, e.what() );
     stunPort = DEFAULT_STUN_PORT;
   }
 
@@ -294,9 +366,30 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
   try {
     turnURL = getConfigValue <std::string, WebRtcEndpoint> ("turnURL");
     GST_INFO ("turn info: %s\n", turnURL.c_str() );
-    GST_WARNING ("TURN is disabled until bug in libnice is solved");
-//     g_object_set ( G_OBJECT (element), "turn-url", turnURL.c_str(),
-//                    NULL);
+    g_object_set ( G_OBJECT (element), "turn-url", turnURL.c_str(),
+                   NULL);
+  } catch (boost::property_tree::ptree_error &e) {
+
+  }
+
+  try {
+    std::ifstream inFile;
+    std::stringstream strStream;
+
+    pemUri = getConfigValue <std::string, WebRtcEndpoint> ("pemCertificate");
+
+    //check if the uri is absolute or relative
+    checkUri (pemUri);
+    GST_INFO ("pemCertificate in: %s\n", pemUri.c_str() );
+
+    inFile.open (pemUri);
+    strStream << inFile.rdbuf();
+    pemCertificate = strStream.str();
+    GST_INFO ("pemCertificate content: %s\n", pemCertificate.c_str() );
+
+    g_object_set ( G_OBJECT (element), "pem-certificate", pemCertificate.c_str(),
+                   NULL);
+
   } catch (boost::property_tree::ptree_error &e) {
 
   }
@@ -322,6 +415,10 @@ WebRtcEndpointImpl::~WebRtcEndpointImpl()
 
   if (handlerOnDataChannelClosed > 0) {
     unregister_signal_handler (element, handlerOnDataChannelClosed);
+  }
+
+  if (handlerNewSelectedPairFull > 0) {
+    unregister_signal_handler (element, handlerNewSelectedPairFull);
   }
 }
 
@@ -388,6 +485,19 @@ WebRtcEndpointImpl::setTurnUrl (const std::string &turnUrl)
   g_object_set ( G_OBJECT (element), "turn-url",
                  turnUrl.c_str(),
                  NULL);
+}
+
+std::vector<std::shared_ptr<IceCandidatePair>>
+    WebRtcEndpointImpl::getICECandidatePairs ()
+{
+  std::vector<std::shared_ptr<IceCandidatePair>> candidates;
+  std::map<std::string, std::shared_ptr <IceCandidatePair>>::iterator it;
+
+  for (it = candidatePairs.begin(); it != candidatePairs.end(); it++) {
+    candidates.push_back ( (*it).second);
+  }
+
+  return candidates;
 }
 
 void

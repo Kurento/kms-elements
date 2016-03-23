@@ -79,14 +79,6 @@ enum
 
 static GParamSpec *obj_properties[N_PROPERTIES] = { NULL, };
 
-struct state_controller
-{
-  GCond cond;
-  GMutex mutex;
-  guint locked;
-  gboolean changing;
-};
-
 typedef struct _KmsSinkPadData
 {
   KmsElementPadType type;
@@ -96,13 +88,6 @@ typedef struct _KmsSinkPadData
   gulong sink_probe;
   gboolean requested;
 } KmsSinkPadData;
-
-typedef struct _StreamE2EAvgStat
-{
-  KmsRefStruct ref;
-  KmsMediaType type;
-  gdouble avg;
-} StreamE2EAvgStat;
 
 typedef struct _KmsRecorderStats
 {
@@ -118,7 +103,6 @@ struct _KmsRecorderEndpointPrivate
   GstClockTime paused_time;
   GstClockTime paused_start;
   gboolean use_dvr;
-  struct state_controller state_manager;
   GstTaskPool *pool;
   KmsBaseMediaMuxer *mux;
   GMutex base_time_lock;
@@ -128,6 +112,7 @@ struct _KmsRecorderEndpointPrivate
 
   KmsRecorderStats stats;
 
+  KmsUriEndpointState moving_to_state;
   gboolean stopping;
   GSList *pending_pads;
 
@@ -190,30 +175,6 @@ data_evt_probe_new (GstElement * appsrc, KmsRecordingProfile profile)
   return data;
 }
 
-static void
-stream_e2e_avg_stat_destroy (StreamE2EAvgStat * stat)
-{
-  g_slice_free (StreamE2EAvgStat, stat);
-}
-
-static StreamE2EAvgStat *
-stream_e2e_avg_stat_new (KmsMediaType type)
-{
-  StreamE2EAvgStat *stat;
-
-  stat = g_slice_new0 (StreamE2EAvgStat);
-  kms_ref_struct_init (KMS_REF_STRUCT_CAST (stat),
-      (GDestroyNotify) stream_e2e_avg_stat_destroy);
-  stat->type = type;
-
-  return stat;
-}
-
-#define stream_e2e_avg_stat_ref(obj) \
-  (StreamE2EAvgStat *) kms_ref_struct_ref (KMS_REF_STRUCT_CAST (obj))
-#define stream_e2e_avg_stat_unref(obj) \
-  kms_ref_struct_unref (KMS_REF_STRUCT_CAST (obj))
-
 static MarkBufferProbeData *
 mark_buffer_probe_data_new ()
 {
@@ -228,7 +189,7 @@ static void
 mark_buffer_probe_data_destroy (MarkBufferProbeData * data)
 {
   g_free (data->id);
-  stream_e2e_avg_stat_unref (data->stat);
+  kms_stats_stream_e2e_avg_stat_unref (data->stat);
 
   g_slice_free (MarkBufferProbeData, data);
 }
@@ -242,22 +203,6 @@ G_DEFINE_TYPE_WITH_CODE (KmsRecorderEndpoint, kms_recorder_endpoint,
 
 static GstBusSyncReply bus_sync_signal_handler (GstBus * bus, GstMessage * msg,
     gpointer data);
-
-static gchar *
-kms_recorder_create_id_from_pad (KmsRecorderEndpoint * self, GstPad * pad)
-{
-  gchar *key, *padname, *objname;
-
-  padname = gst_pad_get_name (pad);
-  objname = gst_element_get_name (self);
-
-  key = g_strdup_printf ("%s_%s", objname, padname);
-
-  g_free (padname);
-  g_free (objname);
-
-  return key;
-}
 
 static gchar *
 kms_element_get_padname_from_id (KmsRecorderEndpoint * self, const gchar * id)
@@ -312,7 +257,6 @@ recv_sample (GstAppSink * appsink, gpointer user_data)
   KmsRecorderEndpoint *self =
       KMS_RECORDER_ENDPOINT (GST_OBJECT_PARENT (appsink));
   GstAppSrc *appsrc = GST_APP_SRC (user_data);
-  KmsUriEndpointState state;
   GstFlowReturn ret;
   GstSample *sample;
   GstSegment *segment;
@@ -332,8 +276,8 @@ recv_sample (GstAppSink * appsink, gpointer user_data)
 
   segment = gst_sample_get_segment (sample);
 
-  g_object_get (G_OBJECT (self), "state", &state, NULL);
-  if (state != KMS_URI_ENDPOINT_STATE_START) {
+  KMS_ELEMENT_LOCK (self);
+  if (self->priv->moving_to_state != KMS_URI_ENDPOINT_STATE_START) {
     GST_WARNING ("Dropping buffer received in invalid state %" GST_PTR_FORMAT,
         buffer);
     // TODO: Add a flag to discard buffers until keyframe
@@ -406,11 +350,13 @@ recv_sample (GstAppSink * appsink, gpointer user_data)
 
   if (ret != GST_FLOW_OK) {
     /* something wrong */
-    GST_ERROR ("Could not send buffer to appsrc %s. Cause: %s",
+    GST_ERROR_OBJECT (self, "Could not send buffer to appsrc %s. Cause: %s",
         GST_ELEMENT_NAME (appsrc), gst_flow_get_name (ret));
+    ret = GST_FLOW_CUSTOM_SUCCESS;
   }
 
 end:
+  KMS_ELEMENT_UNLOCK (self);
   if (sample != NULL) {
     gst_sample_unref (sample);
   }
@@ -427,40 +373,27 @@ recv_eos (GstAppSink * appsink, gpointer user_data)
 }
 
 static void
-kms_recorder_endpoint_change_state (KmsRecorderEndpoint * self)
+kms_recorder_endpoint_change_state (KmsRecorderEndpoint * self,
+    KmsUriEndpointState new_state)
 {
-  KMS_ELEMENT_UNLOCK (KMS_ELEMENT (self));
-
-  g_mutex_lock (&self->priv->state_manager.mutex);
-  while (self->priv->state_manager.changing) {
-    GST_WARNING ("Change of state is taking place");
-    self->priv->state_manager.locked++;
-    g_cond_wait (&self->priv->state_manager.cond,
-        &self->priv->state_manager.mutex);
-    self->priv->state_manager.locked--;
+  // TODO: check stopping and wait until stopping is set to false
+  if (self->priv->stopping) {
+    GST_WARNING_OBJECT (self, "Stopping is in progress, waif for it to finish");
   }
 
-  self->priv->state_manager.changing = TRUE;
-  g_mutex_unlock (&self->priv->state_manager.mutex);
-
-  KMS_ELEMENT_LOCK (KMS_ELEMENT (self));
+  self->priv->moving_to_state = new_state;
 }
 
 static void
 kms_recorder_endpoint_state_changed (KmsRecorderEndpoint * self,
     KmsUriEndpointState state)
 {
-  KMS_URI_ENDPOINT_GET_CLASS (self)->change_state (KMS_URI_ENDPOINT (self),
-      state);
-  KMS_ELEMENT_UNLOCK (KMS_ELEMENT (self));
-
-  g_mutex_lock (&self->priv->state_manager.mutex);
-  self->priv->state_manager.changing = FALSE;
-  if (self->priv->state_manager.locked > 0)
-    g_cond_broadcast (&self->priv->state_manager.cond);
-  g_mutex_unlock (&self->priv->state_manager.mutex);
-
   KMS_ELEMENT_LOCK (KMS_ELEMENT (self));
+  if (!self->priv->stopping || state == KMS_URI_ENDPOINT_STATE_STOP) {
+    KMS_URI_ENDPOINT_GET_CLASS (self)->change_state (KMS_URI_ENDPOINT (self),
+        state);
+  }
+  KMS_ELEMENT_UNLOCK (KMS_ELEMENT (self));
 }
 
 static void
@@ -472,20 +405,18 @@ send_eos_cb (gchar * id, GstElement * appsrc, gpointer user_data)
 static void
 kms_recorder_endpoint_send_eos_to_appsrcs (KmsRecorderEndpoint * self)
 {
-  KMS_ELEMENT_LOCK (KMS_ELEMENT (self));
-
   if (g_hash_table_size (self->priv->srcs) == 0) {
+    KMS_ELEMENT_UNLOCK (KMS_ELEMENT (self));
     kms_base_media_muxer_set_state (self->priv->mux, GST_STATE_NULL);
-    kms_recorder_endpoint_state_changed (self, KMS_URI_ENDPOINT_STATE_STOP);
-    goto end;
+    KMS_ELEMENT_LOCK (KMS_ELEMENT (self));
+    return;
   }
 
+  KMS_ELEMENT_UNLOCK (KMS_ELEMENT (self));
   kms_base_media_muxer_set_state (self->priv->mux, GST_STATE_PLAYING);
+  KMS_ELEMENT_LOCK (KMS_ELEMENT (self));
 
   g_hash_table_foreach (self->priv->srcs, (GHFunc) send_eos_cb, NULL);
-
-end:
-  KMS_ELEMENT_UNLOCK (KMS_ELEMENT (self));
 }
 
 static void
@@ -525,24 +456,10 @@ kms_recorder_endpoint_dispose (GObject * object)
 static void
 kms_recorder_endpoint_release_pending_requests (KmsRecorderEndpoint * self)
 {
-  g_mutex_lock (&self->priv->state_manager.mutex);
-  while (self->priv->state_manager.changing ||
-      self->priv->state_manager.locked > 0) {
-    GST_WARNING ("Waiting to all process blocked");
-    self->priv->state_manager.locked++;
-    g_cond_wait (&self->priv->state_manager.cond,
-        &self->priv->state_manager.mutex);
-    self->priv->state_manager.locked--;
-  }
-  g_mutex_unlock (&self->priv->state_manager.mutex);
-
   gst_task_pool_cleanup (self->priv->pool);
 
   g_clear_object (&self->priv->mux);
   gst_object_unref (self->priv->pool);
-
-  g_cond_clear (&self->priv->state_manager.cond);
-  g_mutex_clear (&self->priv->state_manager.mutex);
 }
 
 static void
@@ -560,7 +477,6 @@ kms_recorder_endpoint_finalize (GObject * object)
   g_hash_table_unref (self->priv->sink_pad_data);
   g_slist_free_full (self->priv->pending_pads, g_free);
   g_hash_table_unref (self->priv->stats.avg_e2e);
-  g_free (self->priv->stats.id);
 
   GST_DEBUG_OBJECT (self, "finalized");
 
@@ -589,7 +505,7 @@ add_mark_data_cb (GstPad * pad, KmsMediaType type, GstClockTimeDiff t,
   } else {
     /* add mark data to this meta */
     kms_list_prepend (meta_data, g_strdup (data->id),
-        stream_e2e_avg_stat_ref (data->stat));
+        kms_stats_stream_e2e_avg_stat_ref (data->stat));
   }
 }
 
@@ -602,6 +518,11 @@ connect_sink_func (const gchar * key, KmsSinkPadData * data,
   KmsMediaType type;
   GstPad *sinkpad;
   gchar *id;
+
+  if (gst_pad_is_linked (data->sink_target)) {
+    /* Pad was not previously removed */
+    return;
+  }
 
   sinkpad = kms_element_connect_sink_target_full (KMS_ELEMENT (self),
       data->sink_target, data->type, data->description, connect_pad_signals_cb,
@@ -620,18 +541,18 @@ connect_sink_func (const gchar * key, KmsSinkPadData * data,
       return;
   }
 
-  id = kms_recorder_create_id_from_pad (self, sinkpad);
+  id = kms_stats_create_id_for_pad (GST_ELEMENT (self), sinkpad);
 
   stat = g_hash_table_lookup (self->priv->stats.avg_e2e, id);
 
   if (stat == NULL) {
-    stat = stream_e2e_avg_stat_new (type);
+    stat = kms_stats_stream_e2e_avg_stat_new (type);
     g_hash_table_insert (self->priv->stats.avg_e2e, g_strdup (id), stat);
   }
 
   markdata = mark_buffer_probe_data_new ();
   markdata->id = id;
-  markdata->stat = stream_e2e_avg_stat_ref (stat);
+  markdata->stat = kms_stats_stream_e2e_avg_stat_ref (stat);
 
   kms_stats_add_buffer_latency_notification_probe (sinkpad, add_mark_data_cb,
       TRUE /* lock the data */ , markdata,
@@ -687,11 +608,11 @@ kms_recorder_endpoint_stopped (KmsUriEndpoint * obj)
 {
   KmsRecorderEndpoint *self = KMS_RECORDER_ENDPOINT (obj);
 
-  kms_recorder_endpoint_change_state (self);
+  kms_recorder_endpoint_change_state (self, KMS_URI_ENDPOINT_STATE_STOP);
 
   if (kms_base_media_muxer_get_state (self->priv->mux) >= GST_STATE_PAUSED) {
-    kms_recorder_endpoint_send_eos_to_appsrcs (self);
     self->priv->stopping = TRUE;
+    kms_recorder_endpoint_send_eos_to_appsrcs (self);
   }
 
   kms_recorder_endpoint_remove_pads (self);
@@ -708,8 +629,9 @@ kms_recorder_endpoint_stopped (KmsUriEndpoint * obj)
 
   if (kms_base_media_muxer_get_state (self->priv->mux) < GST_STATE_PAUSED &&
       !self->priv->stopping) {
+    KMS_ELEMENT_UNLOCK (self);
     kms_base_media_muxer_set_state (self->priv->mux, GST_STATE_NULL);
-    kms_recorder_endpoint_state_changed (self, KMS_URI_ENDPOINT_STATE_STOP);
+    KMS_ELEMENT_LOCK (self);
   }
 }
 
@@ -720,10 +642,12 @@ kms_recorder_endpoint_started (KmsUriEndpoint * obj)
 
   kms_recorder_endpoint_create_parent_directories (self);
 
-  kms_recorder_endpoint_change_state (self);
+  kms_recorder_endpoint_change_state (self, KMS_URI_ENDPOINT_STATE_START);
 
+  KMS_ELEMENT_UNLOCK (self);
   /* Set internal pipeline to playing */
   kms_base_media_muxer_set_state (self->priv->mux, GST_STATE_PLAYING);
+  KMS_ELEMENT_LOCK (self);
 
   BASE_TIME_LOCK (self);
 
@@ -737,28 +661,30 @@ kms_recorder_endpoint_started (KmsUriEndpoint * obj)
   BASE_TIME_UNLOCK (self);
 
   kms_recorder_generate_pads (self);
-
-  kms_recorder_endpoint_state_changed (self, KMS_URI_ENDPOINT_STATE_START);
 }
 
 static void
 kms_recorder_endpoint_paused (KmsUriEndpoint * obj)
 {
   KmsRecorderEndpoint *self = KMS_RECORDER_ENDPOINT (obj);
+  GstClock *clk;
 
-  kms_recorder_endpoint_change_state (self);
+  kms_recorder_endpoint_change_state (self, KMS_URI_ENDPOINT_STATE_PAUSE);
 
   kms_recorder_endpoint_remove_pads (self);
+
+  KMS_ELEMENT_UNLOCK (self);
 
   /* Set internal pipeline to GST_STATE_PAUSED */
   kms_base_media_muxer_set_state (self->priv->mux, GST_STATE_PAUSED);
 
   KMS_ELEMENT_LOCK (self);
 
-  self->priv->paused_start =
-      gst_clock_get_time (kms_base_media_muxer_get_clock (self->priv->mux));
+  clk = kms_base_media_muxer_get_clock (self->priv->mux);
 
-  KMS_ELEMENT_UNLOCK (self);
+  if (clk) {
+    self->priv->paused_start = gst_clock_get_time (clk);
+  }
 
   kms_recorder_endpoint_state_changed (self, KMS_URI_ENDPOINT_STATE_PAUSE);
 }
@@ -946,6 +872,8 @@ link_sinkpad_cb (GstPad * pad, GstPad * peer, gpointer user_data)
     return;
   }
 
+  gst_pad_set_element_private (pad, g_object_ref (appsrc));
+
   g_hash_table_insert (self->priv->srcs, id, g_object_ref (appsrc));
 
   if (sinkdata->sink_probe != 0UL) {
@@ -977,10 +905,20 @@ unlink_sinkpad_cb (GstPad * pad, GstPad * peer, gpointer user_data)
 {
   KmsRecorderEndpoint *self = KMS_RECORDER_ENDPOINT (user_data);
   gchar *id = NULL;
+  GstElement *appsrc;
 
   KMS_ELEMENT_LOCK (KMS_ELEMENT (self));
 
   id = gst_pad_get_name (pad);
+
+  GST_OBJECT_LOCK (pad);
+  appsrc = gst_pad_get_element_private (pad);
+  gst_pad_set_element_private (pad, NULL);
+
+  if (appsrc) {
+    g_object_unref (appsrc);
+  }
+  GST_OBJECT_UNLOCK (pad);
 
   if (self->priv->stopping) {
     GST_DEBUG_OBJECT (self, "Stop operation is pending");
@@ -1107,10 +1045,9 @@ kms_recorder_endpoint_on_eos (KmsBaseMediaMuxer * obj, gpointer user_data)
   GST_DEBUG_OBJECT (recorder,
       "Received EOS in muxing pipeline, setting NULL state");
 
-  KMS_ELEMENT_LOCK (KMS_ELEMENT (recorder));
-
   kms_base_media_muxer_set_state (recorder->priv->mux, GST_STATE_NULL);
-  kms_recorder_endpoint_state_changed (recorder, KMS_URI_ENDPOINT_STATE_STOP);
+
+  KMS_ELEMENT_LOCK (KMS_ELEMENT (recorder));
 
   if (recorder->priv->stopping) {
     GST_WARNING_OBJECT (recorder, "Releasing pending pads");
@@ -1347,24 +1284,18 @@ kms_recorder_endpoint_query_caps (KmsElement * element, GstPad * pad,
   } else {
     GstElement *appsrc;
     GstPad *srcpad;
-    gchar *id;
 
-    id = gst_pad_get_name (pad);
-
-    KMS_ELEMENT_LOCK (KMS_ELEMENT (self));
-
-    appsrc = g_hash_table_lookup (self->priv->srcs, id);
-    g_free (id);
+    GST_OBJECT_LOCK (pad);
+    appsrc = gst_pad_get_element_private (pad);
 
     if (appsrc == NULL) {
       GstCaps *aux;
 
-      KMS_ELEMENT_UNLOCK (KMS_ELEMENT (self));
-      GST_ERROR_OBJECT (self, "No appsrc attached to pad %" GST_PTR_FORMAT,
-          pad);
+      GST_OBJECT_UNLOCK (pad);
+      GST_INFO_OBJECT (self, "No appsrc attached to pad %" GST_PTR_FORMAT, pad);
 
       /* Filter against profile */
-      GST_WARNING_OBJECT (appsrc, "Using generic profile's caps");
+      GST_INFO_OBJECT (appsrc, "Using generic profile's caps");
       aux = gst_caps_intersect (caps, result);
       gst_caps_unref (result);
       result = aux;
@@ -1372,7 +1303,7 @@ kms_recorder_endpoint_query_caps (KmsElement * element, GstPad * pad,
     }
     srcpad = gst_element_get_static_pad (appsrc, "src");
 
-    KMS_ELEMENT_UNLOCK (KMS_ELEMENT (self));
+    GST_OBJECT_UNLOCK (pad);
 
     /* Get encodebin's caps filtering by profile */
     tcaps = gst_pad_peer_query_caps (srcpad, caps);
@@ -1816,6 +1747,31 @@ bus_sync_signal_handler (GstBus * bus, GstMessage * msg, gpointer data)
   } else if (GST_MESSAGE_TYPE (msg) == GST_MESSAGE_EOS) {
     gst_task_pool_push (self->priv->pool, kms_recorder_endpoint_on_eos_message,
         self, NULL);
+  } else if ((GST_MESSAGE_TYPE (msg) == GST_MESSAGE_STATE_CHANGED)
+      && (GST_OBJECT_CAST (KMS_BASE_MEDIA_MUXER_GET_PIPELINE (self->
+                  priv->mux)) == GST_MESSAGE_SRC (msg))) {
+    GstState new_state, pending;
+
+    gst_message_parse_state_changed (msg, NULL, &new_state, &pending);
+
+    if (pending == GST_STATE_VOID_PENDING || (pending == GST_STATE_NULL
+            && new_state == GST_STATE_READY)) {
+      GST_DEBUG_OBJECT (self, "Pipeline changed state to %d", new_state);
+
+      switch (new_state) {
+        case GST_STATE_PLAYING:
+          kms_recorder_endpoint_state_changed (self,
+              KMS_URI_ENDPOINT_STATE_START);
+          break;
+        case GST_STATE_READY:
+          kms_recorder_endpoint_state_changed (self,
+              KMS_URI_ENDPOINT_STATE_STOP);
+          break;
+        default:
+          GST_DEBUG_OBJECT (self, "Not raising event");
+          break;
+      }
+    }
   }
   return GST_BUS_PASS;
 }
@@ -1832,7 +1788,7 @@ kms_recorder_endpoint_init (KmsRecorderEndpoint * self)
   self->priv->srcs = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
       g_object_unref);
 
-  self->priv->profile = KMS_RECORDING_PROFILE_NONE;
+  self->priv->profile = DEFAULT_RECORDING_PROFILE;
 
   self->priv->paused_time = G_GUINT64_CONSTANT (0);
   self->priv->paused_start = GST_CLOCK_TIME_NONE;
@@ -1842,9 +1798,6 @@ kms_recorder_endpoint_init (KmsRecorderEndpoint * self)
 
   self->priv->stats.avg_e2e = g_hash_table_new_full (g_str_hash, g_str_equal,
       g_free, (GDestroyNotify) kms_ref_struct_unref);
-  self->priv->stats.id = g_strdup ("recorder-id");
-
-  g_cond_init (&self->priv->state_manager.cond);
 
   self->priv->pool = gst_task_pool_new ();
   gst_task_pool_prepare (self->priv->pool, &err);

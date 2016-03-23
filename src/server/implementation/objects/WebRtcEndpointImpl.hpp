@@ -36,6 +36,8 @@ public:
   std::string getTurnUrl ();
   void setTurnUrl (const std::string &turnUrl);
 
+  std::vector<std::shared_ptr<IceCandidatePair>> getICECandidatePairs ();
+
   void gatherCandidates ();
   void addIceCandidate (std::shared_ptr<IceCandidate> candidate);
 
@@ -57,6 +59,7 @@ public:
   sigc::signal<void, OnIceCandidate> signalOnIceCandidate;
   sigc::signal<void, OnIceGatheringDone> signalOnIceGatheringDone;
   sigc::signal<void, OnIceComponentStateChanged> signalOnIceComponentStateChanged;
+  sigc::signal<void, NewCandidatePairSelected> signalNewCandidatePairSelected;
 
   sigc::signal<void, OnDataChannelOpened> signalOnDataChannelOpened;
   sigc::signal<void, OnDataChannelClosed> signalOnDataChannelClosed;
@@ -79,16 +82,20 @@ private:
   gulong handlerOnIceComponentStateChanged = 0;
   gulong handlerOnDataChannelOpened = 0;
   gulong handlerOnDataChannelClosed = 0;
+  gulong handlerNewSelectedPairFull = 0;
 
   void onIceCandidate (gchar *sessId, KmsIceCandidate *candidate);
   void onIceGatheringDone (gchar *sessId);
   void onIceComponentStateChanged (gchar *sessId, const gchar *streamId,
                                    guint componentId, guint state);
+  void newSelectedPairFull (gchar *sessId, const gchar *streamId,
+                            guint componentId, KmsIceCandidate *localCandidate,
+                            KmsIceCandidate *remoteCandidate);
   void onDataChannelOpened (gchar *sessId, guint stream_id);
   void onDataChannelClosed (gchar *sessId, guint stream_id);
+  void checkUri (std::string &uri);
 
-  std::shared_ptr<std::string> getPemCertificate ();
-  static std::mutex certificateMutex;
+  std::map < std::string, std::shared_ptr<IceCandidatePair >> candidatePairs;
 
   class StaticConstructor
   {
