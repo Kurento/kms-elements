@@ -37,8 +37,6 @@ struct _KmsIceNiceAgentPrivate
   GMainContext *context;
   NiceAgent *agent;
   GSList *remote_candidates;
-
-  KmsWebrtcSession *session;
 };
 
 static char *
@@ -52,6 +50,20 @@ kms_ice_nice_agent_get_candidate_sdp_string (NiceAgent * agent,
   g_free (str);
 
   return cand;
+}
+
+static KmsIceCandidate *
+kms_ice_nice_agent_create_candidate_from_nice (NiceAgent * nice_agent,
+    NiceCandidate * nice_cand, const char *stream_id)
+{
+  gchar *cand_str = kms_ice_nice_agent_get_candidate_sdp_string (nice_agent,
+      nice_cand);
+  KmsIceCandidate *candidate =
+      kms_ice_candidate_new (cand_str, "", 0, stream_id);
+
+  g_free (cand_str);
+
+  return candidate;
 }
 
 static void
@@ -75,14 +87,12 @@ kms_ice_nice_agent_new_candidate (NiceAgent * agent,
     if (cand->stream_id == stream_id &&
         cand->component_id == component_id &&
         g_strcmp0 (foundation, cand->foundation) == 0) {
-      gchar *cand_str =
-          kms_ice_nice_agent_get_candidate_sdp_string (agent, cand);
       gchar *stream_id_str = g_strdup_printf ("%d", stream_id);
       KmsIceCandidate *candidate =
-          kms_ice_candidate_new (cand_str, "", 0, stream_id_str);
+          kms_ice_nice_agent_create_candidate_from_nice (agent, cand,
+          stream_id_str);
 
       g_free (stream_id_str);
-      g_free (cand_str);
 
       g_signal_emit_by_name (parent, "on-ice-candidate", candidate);
       g_object_unref (candidate);
@@ -156,8 +166,39 @@ kms_ice_nice_agent_component_state_change (NiceAgent * agent, guint stream_id,
   g_free (ret);
 }
 
+void
+kms_ice_nice_agent_new_selected_pair_full (NiceAgent * agent,
+    guint stream_id,
+    guint component_id,
+    NiceCandidate * lcandidate,
+    NiceCandidate * rcandidate, KmsIceNiceAgent * self)
+{
+  KmsIceBaseAgent *parent = KMS_ICE_BASE_AGENT (self);
+  gchar *stream_id_str;
+  KmsIceCandidate *local_candidate, *remote_candidate;
+
+  stream_id_str = g_strdup_printf ("%d", stream_id);
+
+  local_candidate = kms_ice_nice_agent_create_candidate_from_nice (agent,
+      lcandidate, stream_id_str);
+  remote_candidate = kms_ice_nice_agent_create_candidate_from_nice (agent,
+      rcandidate, stream_id_str);
+
+  GST_DEBUG_OBJECT (self,
+      "New pair selected stream_id: %d, component_id: %d, local candidate: %s,"
+      " remote candidate: %s", stream_id, component_id,
+      kms_ice_candidate_get_candidate (local_candidate),
+      kms_ice_candidate_get_candidate (remote_candidate));
+
+  g_signal_emit_by_name (parent, "new-selected-pair-full", stream_id_str,
+      component_id, local_candidate, remote_candidate);
+  g_free (stream_id_str);
+  g_object_unref (local_candidate);
+  g_object_unref (remote_candidate);
+}
+
 KmsIceNiceAgent *
-kms_ice_nice_agent_new (GMainContext * context, KmsWebrtcSession * session)
+kms_ice_nice_agent_new (GMainContext * context)
 {
   GObject *obj;
   KmsIceNiceAgent *agent_object;
@@ -168,7 +209,6 @@ kms_ice_nice_agent_new (GMainContext * context, KmsWebrtcSession * session)
 
   agent_object->priv->agent =
       nice_agent_new (agent_object->priv->context, NICE_COMPATIBILITY_RFC5245);
-  agent_object->priv->session = session;
 
   g_object_set (agent_object->priv->agent, "upnp", FALSE, NULL);
 
@@ -178,6 +218,8 @@ kms_ice_nice_agent_new (GMainContext * context, KmsWebrtcSession * session)
       G_CALLBACK (kms_ice_nice_agent_gathering_done), agent_object);
   g_signal_connect (agent_object->priv->agent, "component-state-changed",
       G_CALLBACK (kms_ice_nice_agent_component_state_change), agent_object);
+  g_signal_connect (agent_object->priv->agent, "new-selected-pair-full",
+      G_CALLBACK (kms_ice_nice_agent_new_selected_pair_full), agent_object);
 
   return agent_object;
 }
@@ -377,51 +419,45 @@ kms_ice_nice_agent_get_default_local_candidate (KmsIceBaseAgent * self,
 {
   KmsIceNiceAgent *nice_agent = KMS_ICE_NICE_AGENT (self);
   NiceCandidate *nice_cand;
-  KmsIceCandidate *ret = NULL;
   guint id = atoi (stream_id);
-  KmsSdpSession *sdp_sess = KMS_SDP_SESSION (nice_agent->priv->session);
-  SdpMessageContext *local_sdp_ctx = sdp_sess->local_sdp_ctx;
-  const GSList *item = kms_sdp_message_context_get_medias (local_sdp_ctx);
+  KmsIceCandidate *ret;
 
   nice_cand =
       nice_agent_get_default_local_candidate (nice_agent->priv->agent, id,
       component_id);
+  ret =
+      kms_ice_nice_agent_create_candidate_from_nice (nice_agent->priv->agent,
+      nice_cand, stream_id);
+  nice_candidate_free (nice_cand);
 
-  for (; item != NULL; item = g_slist_next (item)) {
-    SdpMediaConfig *mconf = item->data;
-    gint idx = kms_sdp_media_config_get_id (mconf);
-    const gchar *mid;
-    gchar *media_stream_id;
+  return ret;
+}
 
-    if (kms_sdp_media_config_is_inactive (mconf)) {
-      GST_DEBUG_OBJECT (self, "Media (id=%d) inactive", idx);
-      continue;
-    }
+static GSList *
+kms_ice_nice_agent_get_local_candidates (KmsIceBaseAgent * self,
+    const char *stream_id, guint component_id)
+{
+  KmsIceNiceAgent *nice_agent = KMS_ICE_NICE_AGENT (self);
+  GSList *ret = NULL;
+  guint id = atoi (stream_id);
+  GSList *candidates;
+  GSList *walk;
 
-    media_stream_id =
-        kms_webrtc_session_get_stream_id (nice_agent->priv->session, mconf);
-    if (media_stream_id == NULL) {
-      goto end;
-    }
+  candidates =
+      nice_agent_get_local_candidates (nice_agent->priv->agent, id,
+      component_id);
 
-    if (g_strcmp0 (media_stream_id, stream_id) != 0) {
-      goto end;
-    }
+  for (walk = candidates; walk; walk = walk->next) {
+    NiceCandidate *nice_cand = walk->data;
+    KmsIceCandidate *candidate =
+        kms_ice_nice_agent_create_candidate_from_nice (nice_agent->priv->agent,
+        nice_cand,
+        stream_id);
 
-    mid = kms_sdp_media_config_get_mid (mconf);
-    if (mid != NULL) {
-      gchar *cand_str =
-          kms_ice_nice_agent_get_candidate_sdp_string (nice_agent->priv->agent,
-          nice_cand);
-
-      ret = kms_ice_candidate_new (cand_str, mid, idx, stream_id);
-      g_free (cand_str);
-      goto end;
-    }
+    ret = g_slist_append (ret, candidate);
   }
 
-end:
-  nice_candidate_free (nice_cand);
+  g_slist_free_full (candidates, (GDestroyNotify) nice_candidate_free);
 
   return ret;
 }
@@ -463,6 +499,7 @@ kms_ice_nice_agent_class_init (KmsIceNiceAgentClass * klass)
   base_class->run_agent = kms_ice_nice_agent_run_agent;
   base_class->get_default_local_candidate =
       kms_ice_nice_agent_get_default_local_candidate;
+  base_class->get_local_candidates = kms_ice_nice_agent_get_local_candidates;
   base_class->remove_stream = kms_ice_nice_agent_remove_stream;
 
   g_type_class_add_private (klass, sizeof (KmsIceNiceAgentPrivate));

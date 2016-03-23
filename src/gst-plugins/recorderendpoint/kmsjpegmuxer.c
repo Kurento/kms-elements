@@ -23,55 +23,52 @@
 #include <commons/kmsutils.h>
 #include <commons/kmsagnosticcaps.h>
 
-#include "kmsavmuxer.h"
+#include "kmsjpegmuxer.h"
 
-#define OBJECT_NAME "avmuxer"
-#define KMS_AV_MUXER_NAME OBJECT_NAME
+#define OBJECT_NAME "jpegmuxer"
+#define KMS_JPEG_MUXER_NAME OBJECT_NAME
 
-#define parent_class kms_av_muxer_parent_class
-#define KEY_AV_MUXER_PAD_PROBE_ID "kms-muxing-pipeline-key-probe-id"
+#define parent_class kms_jpeg_muxer_parent_class
+#define KEY_JPEG_MUXER_PAD_PROBE_ID "kms-muxing-pipeline-key-probe-id"
 
-GST_DEBUG_CATEGORY_STATIC (kms_av_muxer_debug_category);
-#define GST_CAT_DEFAULT kms_av_muxer_debug_category
+GST_DEBUG_CATEGORY_STATIC (kms_jpeg_muxer_debug_category);
+#define GST_CAT_DEFAULT kms_jpeg_muxer_debug_category
 
-#define KMS_AV_MUXER_GET_PRIVATE(obj) (  \
+#define KMS_JPEG_MUXER_GET_PRIVATE(obj) (  \
   G_TYPE_INSTANCE_GET_PRIVATE (          \
     (obj),                               \
-    KMS_TYPE_AV_MUXER,                   \
-    KmsAVMuxerPrivate                    \
+    KMS_TYPE_JPEG_MUXER,                   \
+    KmsJPEGMuxerPrivate                    \
   )                                      \
 )
 
-struct _KmsAVMuxerPrivate
+struct _KmsJPEGMuxerPrivate
 {
   GstElement *videosrc;
-  GstElement *audiosrc;
   GstElement *mux;
   GstElement *sink;
   GstClockTime lastVideoPts;
-  GstClockTime lastAudioPts;
 
   gboolean sink_signaled;
 };
 
 typedef struct _BufferListItData
 {
-  KmsAVMuxer *self;
+  KmsJPEGMuxer *self;
   GstElement *elem;
 } BufferListItData;
 
-G_DEFINE_TYPE_WITH_CODE (KmsAVMuxer, kms_av_muxer,
+G_DEFINE_TYPE_WITH_CODE (KmsJPEGMuxer, kms_jpeg_muxer,
     KMS_TYPE_BASE_MEDIA_MUXER,
-    GST_DEBUG_CATEGORY_INIT (kms_av_muxer_debug_category, OBJECT_NAME,
+    GST_DEBUG_CATEGORY_INIT (kms_jpeg_muxer_debug_category, OBJECT_NAME,
         0, "debug category for muxing pipeline object"));
 
 GstStateChangeReturn
-kms_av_muxer_set_state (KmsBaseMediaMuxer * obj, GstState state)
+kms_jpeg_muxer_set_state (KmsBaseMediaMuxer * obj, GstState state)
 {
-  KmsAVMuxer *self = KMS_AV_MUXER (obj);
+  KmsJPEGMuxer *self = KMS_JPEG_MUXER (obj);
 
   if (state == GST_STATE_NULL || state == GST_STATE_READY) {
-    self->priv->lastAudioPts = 0;
     self->priv->lastVideoPts = 0;
   }
 
@@ -79,18 +76,15 @@ kms_av_muxer_set_state (KmsBaseMediaMuxer * obj, GstState state)
 }
 
 static GstElement *
-kms_av_muxer_add_src (KmsBaseMediaMuxer * obj, KmsMediaType type,
+kms_jpeg_muxer_add_src (KmsBaseMediaMuxer * obj, KmsMediaType type,
     const gchar * id)
 {
-  KmsAVMuxer *self = KMS_AV_MUXER (obj);
+  KmsJPEGMuxer *self = KMS_JPEG_MUXER (obj);
   GstElement *sink = NULL, *appsrc = NULL;
 
   KMS_BASE_MEDIA_MUXER_LOCK (self);
 
   switch (type) {
-    case KMS_MEDIA_TYPE_AUDIO:
-      appsrc = self->priv->audiosrc;
-      break;
     case KMS_MEDIA_TYPE_VIDEO:
       appsrc = self->priv->videosrc;
       break;
@@ -115,36 +109,35 @@ kms_av_muxer_add_src (KmsBaseMediaMuxer * obj, KmsMediaType type,
 }
 
 static gboolean
-kms_av_muxer_remove_src (KmsBaseMediaMuxer * obj, const gchar * id)
+kms_jpeg_muxer_remove_src (KmsBaseMediaMuxer * obj, const gchar * id)
 {
   /* Nothing to remove */
   return FALSE;
 }
 
 static void
-kms_av_muxer_class_init (KmsAVMuxerClass * klass)
+kms_jpeg_muxer_class_init (KmsJPEGMuxerClass * klass)
 {
   KmsBaseMediaMuxerClass *basemediamuxerclass;
 
   basemediamuxerclass = KMS_BASE_MEDIA_MUXER_CLASS (klass);
-  basemediamuxerclass->set_state = kms_av_muxer_set_state;
-  basemediamuxerclass->add_src = kms_av_muxer_add_src;
-  basemediamuxerclass->remove_src = kms_av_muxer_remove_src;
+  basemediamuxerclass->set_state = kms_jpeg_muxer_set_state;
+  basemediamuxerclass->add_src = kms_jpeg_muxer_add_src;
+  basemediamuxerclass->remove_src = kms_jpeg_muxer_remove_src;
 
-  g_type_class_add_private (klass, sizeof (KmsAVMuxerPrivate));
+  g_type_class_add_private (klass, sizeof (KmsJPEGMuxerPrivate));
 }
 
 static void
-kms_av_muxer_init (KmsAVMuxer * self)
+kms_jpeg_muxer_init (KmsJPEGMuxer * self)
 {
-  self->priv = KMS_AV_MUXER_GET_PRIVATE (self);
+  self->priv = KMS_JPEG_MUXER_GET_PRIVATE (self);
 
   self->priv->lastVideoPts = G_GUINT64_CONSTANT (0);
-  self->priv->lastAudioPts = G_GUINT64_CONSTANT (0);
 }
 
 static gboolean
-kms_av_muxer_check_pts (GstBuffer ** buffer, GstClockTime * lastPts)
+kms_jpeg_muxer_check_pts (GstBuffer ** buffer, GstClockTime * lastPts)
 {
   if (G_UNLIKELY (!GST_BUFFER_PTS_IS_VALID ((*buffer)))) {
     return TRUE;
@@ -161,22 +154,20 @@ kms_av_muxer_check_pts (GstBuffer ** buffer, GstClockTime * lastPts)
 }
 
 static gboolean
-kms_av_muxer_injector (KmsAVMuxer * self, GstElement * elem,
+kms_jpeg_muxer_injector (KmsJPEGMuxer * self, GstElement * elem,
     GstBuffer ** buffer)
 {
   GstClockTime *lastPts = NULL;
 
   if (elem == self->priv->videosrc) {
     lastPts = &self->priv->lastVideoPts;
-  } else if (elem == self->priv->audiosrc) {
-    lastPts = &self->priv->lastAudioPts;
   }
 
   if (G_LIKELY (lastPts)) {
     gboolean ret;
 
     KMS_BASE_MEDIA_MUXER_LOCK (self);
-    ret = kms_av_muxer_check_pts (buffer, lastPts);
+    ret = kms_jpeg_muxer_check_pts (buffer, lastPts);
     KMS_BASE_MEDIA_MUXER_UNLOCK (self);
 
     return ret;
@@ -186,16 +177,16 @@ kms_av_muxer_injector (KmsAVMuxer * self, GstElement * elem,
 }
 
 static gboolean
-kms_av_muxer_injector_probe_it (GstBuffer ** buffer, guint idx,
+kms_jpeg_muxer_injector_probe_it (GstBuffer ** buffer, guint idx,
     gpointer user_data)
 {
   BufferListItData *data = user_data;
 
-  return kms_av_muxer_injector (data->self, data->elem, buffer);
+  return kms_jpeg_muxer_injector (data->self, data->elem, buffer);
 }
 
 static GstPadProbeReturn
-kms_av_muxer_injector_probe (GstPad * pad, GstPadProbeInfo * info,
+kms_jpeg_muxer_injector_probe (GstPad * pad, GstPadProbeInfo * info,
     gpointer self)
 {
   GstElement *elem;
@@ -217,13 +208,13 @@ kms_av_muxer_injector_probe (GstPad * pad, GstPadProbeInfo * info,
     itData.elem = elem;
 
     if (G_UNLIKELY (!gst_buffer_list_foreach (list,
-                kms_av_muxer_injector_probe_it, &itData))) {
+                kms_jpeg_muxer_injector_probe_it, &itData))) {
       ret = GST_PAD_PROBE_DROP;
     }
   } else if (info->type & GST_PAD_PROBE_TYPE_BUFFER) {
     GstBuffer **buffer = (GstBuffer **) & info->data;
 
-    if (G_UNLIKELY (!kms_av_muxer_injector (self, elem, buffer))) {
+    if (G_UNLIKELY (!kms_jpeg_muxer_injector (self, elem, buffer))) {
       ret = GST_PAD_PROBE_DROP;
     }
   }
@@ -234,7 +225,7 @@ kms_av_muxer_injector_probe (GstPad * pad, GstPadProbeInfo * info,
 }
 
 static void
-kms_av_muxer_add_injector_probe (KmsAVMuxer * self, GstElement * appsrc)
+kms_jpeg_muxer_add_injector_probe (KmsJPEGMuxer * self, GstElement * appsrc)
 {
   GstPad *src;
 
@@ -244,35 +235,17 @@ kms_av_muxer_add_injector_probe (KmsAVMuxer * self, GstElement * appsrc)
 
   gst_pad_add_probe (src,
       GST_PAD_PROBE_TYPE_BUFFER | GST_PAD_PROBE_TYPE_BUFFER_LIST,
-      kms_av_muxer_injector_probe, self, NULL);
+      kms_jpeg_muxer_injector_probe, self, NULL);
 
   g_object_unref (src);
 }
 
 static GstElement *
-kms_av_muxer_create_muxer (KmsAVMuxer * self)
+kms_jpeg_muxer_create_muxer (KmsJPEGMuxer * self)
 {
   switch (KMS_BASE_MEDIA_MUXER_GET_PROFILE (self)) {
-    case KMS_RECORDING_PROFILE_WEBM:
-    case KMS_RECORDING_PROFILE_WEBM_VIDEO_ONLY:
-    case KMS_RECORDING_PROFILE_WEBM_AUDIO_ONLY:
-      return gst_element_factory_make ("webmmux", NULL);
-    case KMS_RECORDING_PROFILE_MP4:
-    case KMS_RECORDING_PROFILE_MP4_VIDEO_ONLY:
-    case KMS_RECORDING_PROFILE_MP4_AUDIO_ONLY:{
-      GstElement *mux = gst_element_factory_make ("qtmux", NULL);
-      GstElementFactory *file_sink_factory =
-          gst_element_factory_find ("filesink");
-      GstElementFactory *sink_factory =
-          gst_element_get_factory (self->priv->sink);
-
-      if ((gst_element_factory_get_element_type (sink_factory) !=
-              gst_element_factory_get_element_type (file_sink_factory))) {
-        g_object_set (mux, "faststart", TRUE, NULL);
-      }
-
-      g_object_unref (file_sink_factory);
-      return mux;
+    case KMS_RECORDING_PROFILE_JPEG:{
+      return gst_element_factory_make ("jifmux", NULL);
     }
     default:
       GST_ERROR_OBJECT (self, "No valid recording profile set");
@@ -281,26 +254,22 @@ kms_av_muxer_create_muxer (KmsAVMuxer * self)
 }
 
 static void
-kms_av_muxer_prepare_pipeline (KmsAVMuxer * self)
+kms_jpeg_muxer_prepare_pipeline (KmsJPEGMuxer * self)
 {
   self->priv->videosrc = gst_element_factory_make ("appsrc", "videoSrc");
-  self->priv->audiosrc = gst_element_factory_make ("appsrc", "audioSrc");
 
   self->priv->sink =
       KMS_BASE_MEDIA_MUXER_GET_CLASS (self)->create_sink (KMS_BASE_MEDIA_MUXER
       (self), KMS_BASE_MEDIA_MUXER_GET_URI (self));
 
   g_object_set (self->priv->videosrc, "format", 3 /* GST_FORMAT_TIME */ , NULL);
-  g_object_set (self->priv->audiosrc, "format", 3 /* GST_FORMAT_TIME */ , NULL);
 
-  kms_av_muxer_add_injector_probe (self, self->priv->videosrc);
-  kms_av_muxer_add_injector_probe (self, self->priv->audiosrc);
+  kms_jpeg_muxer_add_injector_probe (self, self->priv->videosrc);
 
-  self->priv->mux = kms_av_muxer_create_muxer (self);
+  self->priv->mux = kms_jpeg_muxer_create_muxer (self);
 
   gst_bin_add_many (GST_BIN (KMS_BASE_MEDIA_MUXER_GET_PIPELINE (self)),
-      self->priv->videosrc, self->priv->mux,
-      self->priv->sink, NULL);
+      self->priv->videosrc, self->priv->mux, self->priv->sink, NULL);
 
   if (!gst_element_link (self->priv->mux, self->priv->sink)) {
     GST_ERROR_OBJECT (self, "Could not link elements: %"
@@ -310,36 +279,26 @@ kms_av_muxer_prepare_pipeline (KmsAVMuxer * self)
   if (kms_recording_profile_supports_type (KMS_BASE_MEDIA_MUXER_GET_PROFILE
           (self), KMS_ELEMENT_PAD_TYPE_VIDEO)) {
     if (!gst_element_link_pads (self->priv->videosrc, "src", self->priv->mux,
-            "video_%u")) {
+            "sink")) {
       GST_ERROR_OBJECT (self,
-          "Could not link elements: %" GST_PTR_FORMAT ", %" GST_PTR_FORMAT,
+          "Could not link video elements: %" GST_PTR_FORMAT ", %" GST_PTR_FORMAT,
           self->priv->videosrc, self->priv->mux);
-    }
-  }
-
-  if (kms_recording_profile_supports_type (KMS_BASE_MEDIA_MUXER_GET_PROFILE
-          (self), KMS_ELEMENT_PAD_TYPE_AUDIO)) {
-    if (!gst_element_link_pads (self->priv->audiosrc, "src", self->priv->mux,
-            "audio_%u")) {
-      GST_ERROR_OBJECT (self,
-          "Could not link elements: %" GST_PTR_FORMAT ", %" GST_PTR_FORMAT,
-          self->priv->audiosrc, self->priv->mux);
     }
   }
 }
 
-KmsAVMuxer *
-kms_av_muxer_new (const char *optname1, ...)
+KmsJPEGMuxer *
+kms_jpeg_muxer_new (const char *optname1, ...)
 {
-  KmsAVMuxer *obj;
+  KmsJPEGMuxer *obj;
 
   va_list ap;
 
   va_start (ap, optname1);
-  obj = KMS_AV_MUXER (g_object_new_valist (KMS_TYPE_AV_MUXER, optname1, ap));
+  obj = KMS_JPEG_MUXER (g_object_new_valist (KMS_TYPE_JPEG_MUXER, optname1, ap));
   va_end (ap);
 
-  kms_av_muxer_prepare_pipeline (obj);
+  kms_jpeg_muxer_prepare_pipeline (obj);
 
   return obj;
 }

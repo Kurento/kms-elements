@@ -43,6 +43,14 @@ typedef struct _KmsIWebRtcDataChannelManager KmsIWebRtcDataChannelManager;
 typedef struct _KmsWebrtcSession KmsWebrtcSession;
 typedef struct _KmsWebrtcSessionClass KmsWebrtcSessionClass;
 
+typedef gboolean (*KmsAddPad) (KmsWebrtcSession * self, GstPad *pad, KmsElementPadType type, const gchar *description, gpointer user_data);
+typedef gboolean (*KmsRemovePad) (KmsWebrtcSession * self, GstPad *pad, KmsElementPadType type, const gchar *description, gpointer user_data);
+
+typedef struct {
+  KmsAddPad add_pad_cb;
+  KmsRemovePad remove_pad_cb;
+} KmsWebrtcSessionCallbacks;
+
 struct _KmsWebrtcSession
 {
   KmsBaseRtpSession parent;
@@ -59,6 +67,7 @@ struct _KmsWebrtcSession
   gchar *turn_address;
   guint turn_port;
   TurnProtocol turn_transport;
+  gchar *pem_certificate;
 
   guint16 min_port;
   guint16 max_port;
@@ -67,6 +76,11 @@ struct _KmsWebrtcSession
 
   GstElement *data_session;
   GHashTable *data_channels;
+
+  KmsAddPad add_pad_cb;
+  KmsRemovePad remove_pad_cb;
+  gpointer cb_data;
+  GDestroyNotify destroy_data;
 };
 
 struct _KmsWebrtcSessionClass
@@ -102,6 +116,7 @@ KmsWebrtcSession * kms_webrtc_session_new (KmsBaseSdpEndpoint * ep, guint id,
 
 KmsWebRtcBaseConnection * kms_webrtc_session_get_connection (KmsWebrtcSession * self, SdpMediaConfig * mconf);
 gboolean kms_webrtc_session_set_ice_credentials (KmsWebrtcSession * self, SdpMediaConfig * mconf);
+gboolean kms_webrtc_session_set_ice_candidates (KmsWebrtcSession * self, SdpMediaConfig * mconf);
 gboolean kms_webrtc_session_set_crypto_info (KmsWebrtcSession * self, SdpMediaConfig * mconf);
 void kms_webrtc_session_remote_sdp_add_ice_candidate (KmsWebrtcSession * self, KmsIceCandidate *candidate, guint8 index);
 gboolean kms_webrtc_session_set_remote_ice_candidate (KmsWebrtcSession * self, KmsIceCandidate * candidate);
@@ -110,6 +125,8 @@ gchar * kms_webrtc_session_get_stream_id (KmsWebrtcSession * self, SdpMediaConfi
 void kms_webrtc_session_start_transport_send (KmsWebrtcSession * self, gboolean offerer);
 
 void kms_webrtc_session_add_data_channels_stats (KmsWebrtcSession * self, GstStructure * stats, const gchar * selector);
+
+void kms_webrtc_session_set_callbacks (KmsWebrtcSession * self, KmsWebrtcSessionCallbacks *cb, gpointer user_data, GDestroyNotify notify);
 
 G_END_DECLS
 #endif /* __KMS_WEBRTC_SESSION_H__ */

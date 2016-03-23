@@ -54,7 +54,7 @@ kms_webrtc_transport_destroy (KmsWebRtcTransport * tr)
 
 KmsWebRtcTransport *
 kms_webrtc_transport_create (KmsIceBaseAgent * agent, char *stream_id,
-    guint component_id)
+    guint component_id, gchar * pem_certificate)
 {
   KmsWebRtcTransport *tr;
   gchar *str;
@@ -78,6 +78,11 @@ kms_webrtc_transport_create (KmsIceBaseAgent * agent, char *stream_id,
   g_object_set (G_OBJECT (tr->src->dtlssrtpdec), "connection-id", str, NULL);
   g_free (str);
 
+  if (pem_certificate != NULL) {
+    g_object_set (G_OBJECT (tr->src->dtlssrtpdec), "pem", pem_certificate,
+        NULL);
+  }
+
   kms_webrtc_transport_src_configure (tr->src, agent, stream_id, component_id);
   kms_webrtc_transport_sink_configure (tr->sink, agent, stream_id,
       component_id);
@@ -100,10 +105,8 @@ kms_webrtc_transport_enable_latency_notification (KmsWebRtcTransport * tr,
   element_remove_probe (tr->sink->sink, "sink", tr->sink_probe);
   pad = gst_element_get_static_pad (tr->sink->sink, "sink");
 
-  /* TODO: Allow to lock the data in callback when multi-stream */
-  /* end tpo end stats are supported in webrtc */
   tr->sink_probe = kms_stats_add_buffer_latency_notification_probe (pad, cb,
-      FALSE, user_data, destroy_data);
+      TRUE /* Lock the data */ , user_data, destroy_data);
   g_object_unref (pad);
 }
 

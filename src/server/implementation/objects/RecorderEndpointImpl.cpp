@@ -14,14 +14,25 @@
 #include <commons/kmsutils.h>
 #include <commons/kmsstats.h>
 
+#include <SignalHandler.hpp>
+#include <functional>
+
 #define GST_CAT_DEFAULT kurento_recorder_endpoint_impl
 GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define GST_DEFAULT_NAME "KurentoRecorderEndpointImpl"
 
 #define FACTORY_NAME "recorderendpoint"
 
+#define TIMEOUT 4 /* seconds */
+
 namespace kurento
 {
+
+typedef enum {
+  KMS_URI_END_POINT_STATE_STOP,
+  KMS_URI_END_POINT_STATE_START,
+  KMS_URI_END_POINT_STATE_PAUSE
+} KmsUriEndPointState;
 
 bool RecorderEndpointImpl::support_ksr;
 
@@ -47,8 +58,6 @@ RecorderEndpointImpl::RecorderEndpointImpl (const boost::property_tree::ptree
     bool stopOnEndOfStream) : UriEndpointImpl (conf,
           std::dynamic_pointer_cast<MediaObjectImpl> (mediaPipeline), FACTORY_NAME, uri)
 {
-  g_object_ref (getGstreamerElement() );
-
   g_object_set (G_OBJECT (getGstreamerElement() ), "accept-eos",
                 stopOnEndOfStream, NULL);
 
@@ -105,42 +114,103 @@ RecorderEndpointImpl::RecorderEndpointImpl (const boost::property_tree::ptree
   }
 }
 
-static void
-dispose_element (GstElement *element)
+void RecorderEndpointImpl::postConstructor()
 {
-  GST_TRACE_OBJECT (element, "Disposing");
+  MediaElementImpl::postConstructor();
 
-  gst_element_set_state (element, GST_STATE_NULL);
-  g_object_unref (element);
+  handlerOnStateChanged = register_signal_handler (G_OBJECT (element),
+                          "state-changed",
+                          std::function <void (GstElement *, gint) >
+                          (std::bind (&RecorderEndpointImpl::onStateChanged, this,
+                                      std::placeholders::_2) ),
+                          std::dynamic_pointer_cast<RecorderEndpointImpl>
+                          (shared_from_this() ) );
 }
 
-static void
-state_changed (GstElement *element, gint state, gpointer data)
+void
+RecorderEndpointImpl::onStateChanged (gint newState)
 {
-  GST_TRACE_OBJECT (element, "State changed: %d", state);
-  dispose_element (element);
+  switch (newState) {
+  case KMS_URI_END_POINT_STATE_STOP: {
+    GST_DEBUG_OBJECT (element, "State changed to Stopped");
+    Stopped event (shared_from_this(), Stopped::getName() );
+    signalStopped (event);
+    break;
+  }
+
+  case KMS_URI_END_POINT_STATE_START: {
+    GST_DEBUG_OBJECT (element, "State changed to Recording");
+    Recording event (shared_from_this(), Recording::getName() );
+    signalRecording (event);
+    break;
+  }
+
+  case KMS_URI_END_POINT_STATE_PAUSE: {
+    GST_DEBUG_OBJECT (element, "State changed to Paused");
+    Paused event (shared_from_this(), Paused::getName() );
+    signalPaused (event);
+    break;
+  }
+  }
+
+  std::unique_lock<std::mutex> lck (mtx);
+
+  GST_TRACE_OBJECT (element, "State changed to %d", newState);
+
+  state = newState;
+  cv.notify_one();
 }
 
-RecorderEndpointImpl::~RecorderEndpointImpl()
+void RecorderEndpointImpl::waitForStateChange (gint expectedState)
+{
+  std::unique_lock<std::mutex> lck (mtx);
+
+  if (!cv.wait_for (lck, std::chrono::seconds (TIMEOUT), [&] {return expectedState == state;}) ) {
+    GST_ERROR_OBJECT (element, "STATE did not changed to %d in %d seconds",
+                      expectedState, TIMEOUT);
+  }
+}
+
+void
+RecorderEndpointImpl::release ()
 {
   gint state = -1;
 
   g_object_get (getGstreamerElement(), "state", &state, NULL);
 
   if (state == 0 /* stop */) {
-    dispose_element (getGstreamerElement() );
     return;
   }
 
-  g_signal_connect (getGstreamerElement(), "state-changed",
-                    G_CALLBACK (state_changed), NULL);
+  stopAndWait();
 
-  stop();
+  UriEndpointImpl::release();
+}
+
+RecorderEndpointImpl::~RecorderEndpointImpl()
+{
+  gint state = -1;
+
+  if (handlerOnStateChanged > 0) {
+    unregister_signal_handler (element, handlerOnStateChanged);
+  }
+
+  g_object_get (getGstreamerElement(), "state", &state, NULL);
+
+  if (state != 0 /* stop */) {
+    GST_ERROR ("Recorder should be stopped when reaching this point");
+  }
 }
 
 void RecorderEndpointImpl::record ()
 {
   start();
+}
+
+void RecorderEndpointImpl::stopAndWait ()
+{
+  stop();
+  waitForStateChange (KMS_URI_END_POINT_STATE_STOP);
 }
 
 static void

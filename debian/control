@@ -5,7 +5,7 @@ Maintainer: Kurento Maintenance Team <kurento@googlegroups.com>
 Build-Depends: debhelper (>= 8.0.0),
  cmake,
  pkg-config,
- kms-core-6.0-dev (>= 6.3.1),
+ kms-core-6.0-dev (>= 6.4.0),
  libboost-filesystem-dev,
  libboost-test-dev,
  libsoup2.4-dev,
@@ -13,7 +13,8 @@ Build-Depends: debhelper (>= 8.0.0),
  gstreamer1.5-nice,
  uuid-dev,
  valgrind,
- openwebrtc-gst-plugins-dev
+ openwebrtc-gst-plugins-dev,
+ ffmpeg
 Standards-Version: 3.9.4
 Homepage: http://kurento.org
 Vcs-Git: git://github.com/Kurento/kms-elements.git

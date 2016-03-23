@@ -27,6 +27,7 @@ enum
   SIGNAL_ON_ICE_CANDIDATE_,
   SIGNAL_ON_ICE_GATHERING_DONE_,
   SIGNAL_ON_ICE_COMPONENT_STATE_CHANGED_,
+  SIGNAL_NEW_SELECTED_PAIR_FULL_,
   LAST_SIGNAL_
 };
 
@@ -223,6 +224,23 @@ kms_ice_base_agent_get_default_local_candidate_default (KmsIceBaseAgent * self,
   return NULL;
 }
 
+static GSList *
+kms_ice_base_agent_get_local_candidates_default (KmsIceBaseAgent * self,
+    const char *stream_id, guint component_id)
+{
+  KmsIceBaseAgentClass *klass =
+      KMS_ICE_BASE_AGENT_CLASS (G_OBJECT_GET_CLASS (self));
+
+  if (klass->get_local_candidates ==
+      kms_ice_base_agent_get_local_candidates_default) {
+    GST_WARNING_OBJECT (self,
+        "%s does not reimplement 'get_local_candidates'",
+        G_OBJECT_CLASS_NAME (klass));
+  }
+
+  return NULL;
+}
+
 static void
 kms_ice_base_agent_run_agent_default (KmsIceBaseAgent * self)
 {
@@ -334,6 +352,16 @@ kms_ice_base_agent_get_default_local_candidate (KmsIceBaseAgent * self,
   return klass->get_default_local_candidate (self, stream_id, component_id);
 }
 
+GSList *
+kms_ice_base_agent_get_local_candidates (KmsIceBaseAgent * self,
+    const char *stream_id, guint component_id)
+{
+  KmsIceBaseAgentClass *klass =
+      KMS_ICE_BASE_AGENT_CLASS (G_OBJECT_GET_CLASS (self));
+
+  return klass->get_local_candidates (self, stream_id, component_id);
+}
+
 void
 kms_ice_base_agent_run_agent (KmsIceBaseAgent * self)
 {
@@ -367,6 +395,7 @@ kms_ice_base_agent_class_init (KmsIceBaseAgentClass * klass)
   klass->add_ice_candidate = kms_ice_base_agent_add_ice_candidate_default;
   klass->get_default_local_candidate =
       kms_ice_base_agent_get_default_local_candidate_default;
+  klass->get_local_candidates = kms_ice_base_agent_get_local_candidates_default;
   klass->run_agent = kms_ice_base_agent_run_agent_default;
 
   /**
@@ -409,6 +438,12 @@ kms_ice_base_agent_class_init (KmsIceBaseAgentClass * klass)
       g_signal_new ("on-ice-component-state-changed",
       G_OBJECT_CLASS_TYPE (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 3, G_TYPE_STRING, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_INVALID);
+
+  kms_ice_base_agent_signals[SIGNAL_NEW_SELECTED_PAIR_FULL_] =
+      g_signal_new ("new-selected-pair-full",
+      G_OBJECT_CLASS_TYPE (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+      G_TYPE_NONE, 4, G_TYPE_STRING, G_TYPE_UINT, KMS_TYPE_ICE_CANDIDATE,
+      KMS_TYPE_ICE_CANDIDATE);
 
   GST_DEBUG_CATEGORY_INIT (GST_CAT_DEFAULT, GST_DEFAULT_NAME, 0,
       GST_DEFAULT_NAME);
