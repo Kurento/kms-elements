@@ -172,11 +172,10 @@ RecorderEndpointImpl::release ()
 
   g_object_get (getGstreamerElement(), "state", &state, NULL);
 
-  if (state == 0 /* stop */) {
-    return;
+  if (state != 0 /* recording */) {
+    stopAndWait();
   }
 
-  stopAndWait();
 
   UriEndpointImpl::release();
 }
