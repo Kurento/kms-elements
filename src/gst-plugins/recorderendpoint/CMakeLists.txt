@@ -4,6 +4,7 @@ set(KMS_RECORDERENDPOINT_SOURCES
   kmsbasemediamuxer.c
   kmsavmuxer.c
   kmsksrmuxer.c
+  kmsjpegmuxer.c
   kmsrecorderendpoint.c
 )
 
@@ -11,6 +12,7 @@ set(KMS_RECORDERENDPOINT_HEADERS
   kmsbasemediamuxer.h
   kmsavmuxer.h
   kmsksrmuxer.h
+  kmsjpegmuxer.h
   kmsrecorderendpoint.h
 )
 

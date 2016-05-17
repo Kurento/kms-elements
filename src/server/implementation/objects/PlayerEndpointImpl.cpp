@@ -16,6 +16,7 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define VIDEO_DATA "video-data"
 #define POSITION "position"
 #define SET_POSITION "set-position"
+#define LATENCY "latency"
 #define NS_TO_MS 1000000
 
 namespace kurento
@@ -80,12 +81,14 @@ void PlayerEndpointImpl::postConstructor()
 PlayerEndpointImpl::PlayerEndpointImpl (const boost::property_tree::ptree &conf,
                                         std::shared_ptr<MediaPipeline>
                                         mediaPipeline, const std::string &uri,
-                                        bool useEncodedMedia) : UriEndpointImpl (conf,
+                                        bool useEncodedMedia,
+                                        int latency) : UriEndpointImpl (conf,
                                               std::dynamic_pointer_cast<MediaObjectImpl> (mediaPipeline), FACTORY_NAME, uri)
 {
   GstElement *element = getGstreamerElement();
 
   g_object_set (G_OBJECT (element), "use-encoded-media", useEncodedMedia, NULL);
+  g_object_set (G_OBJECT (element), "latency", latency, NULL);
 }
 
 PlayerEndpointImpl::~PlayerEndpointImpl()
@@ -150,6 +153,20 @@ void PlayerEndpointImpl::setPosition (int64_t position)
   }
 }
 
+int64_t PlayerEndpointImpl::getLatency ()
+{
+  int64_t latency;
+
+  g_object_get (G_OBJECT (element), LATENCY, &latency, NULL);
+
+  return latency;
+}
+
+void PlayerEndpointImpl::setLatency (int64_t latency)
+{
+  g_object_set (G_OBJECT (element), LATENCY, latency, NULL);
+}
+
 void PlayerEndpointImpl::play ()
 {
   start();
@@ -159,9 +176,10 @@ MediaObjectImpl *
 PlayerEndpointImplFactory::createObject (const boost::property_tree::ptree
     &conf,
     std::shared_ptr<MediaPipeline> mediaPipeline, const std::string &uri,
-    bool useEncodedMedia) const
+    bool useEncodedMedia,
+    int latency) const
 {
-  return new PlayerEndpointImpl (conf, mediaPipeline, uri, useEncodedMedia);
+  return new PlayerEndpointImpl (conf, mediaPipeline, uri, useEncodedMedia, latency);
 }
 
 PlayerEndpointImpl::StaticConstructor PlayerEndpointImpl::staticConstructor;

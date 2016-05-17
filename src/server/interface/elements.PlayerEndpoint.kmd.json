@@ -73,6 +73,13 @@
               "type": "boolean",
               "optional": true,
               "defaultValue": false
+            },
+            {
+              "name": "latency",
+              "doc": "the desired RTP buffer latency in ms. Only for RTP videos.",
+              "type": "int",
+              "optional": true,
+              "defaultValue": 2000
             }
           ]
         },
