@@ -36,6 +36,7 @@
 #include <commons/kmsrefstruct.h>
 #include "kmsbasemediamuxer.h"
 #include "kmsavmuxer.h"
+#include "kmsjpegmuxer.h"
 #include "kmsksrmuxer.h"
 
 #define PLUGIN_NAME "recorderendpoint"
@@ -1091,6 +1092,10 @@ kms_recorder_endpoint_create_base_media_muxer (KmsRecorderEndpoint * self)
 
   if (self->priv->profile == KMS_RECORDING_PROFILE_KSR) {
     mux = KMS_BASE_MEDIA_MUXER (kms_ksr_muxer_new
+        (KMS_BASE_MEDIA_MUXER_PROFILE, self->priv->profile,
+            KMS_BASE_MEDIA_MUXER_URI, KMS_URI_ENDPOINT (self)->uri, NULL));
+  } else if (self->priv->profile == KMS_RECORDING_PROFILE_JPEG) {
+    mux = KMS_BASE_MEDIA_MUXER (kms_jpeg_muxer_new
         (KMS_BASE_MEDIA_MUXER_PROFILE, self->priv->profile,
             KMS_BASE_MEDIA_MUXER_URI, KMS_URI_ENDPOINT (self)->uri, NULL));
   } else {

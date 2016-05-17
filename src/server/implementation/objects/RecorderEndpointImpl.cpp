@@ -92,8 +92,14 @@ RecorderEndpointImpl::RecorderEndpointImpl (const boost::property_tree::ptree
 
   case MediaProfileSpecType::MP4_AUDIO_ONLY:
     g_object_set ( G_OBJECT (element), "profile",
-                   KMS_RECORDING_PROFILE_MP4_AUDIO_ONLY, NULL);
+                   KMS_RECORDING_PROFILE_JPEG, NULL);
     GST_INFO ("Set MP4 AUDIO ONLY profile");
+    break;
+
+  case MediaProfileSpecType::JPEG:
+    g_object_set ( G_OBJECT (element), "profile",
+                   KMS_RECORDING_PROFILE_MP4_VIDEO_ONLY, NULL);
+    GST_INFO ("Set JPEG profile");
     break;
 
   case MediaProfileSpecType::KURENTO_SPLIT_RECORDER:
