@@ -9,6 +9,9 @@ set (VALGRING_TEST_PROPERTIES
 
 set (SUPPRESSIONS "${CMAKE_CURRENT_SOURCE_DIR}/valgrind.supp")
 
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
+
 add_test_program (test_constructors constructors.cpp)
 add_dependencies(test_constructors ${LIBRARY_NAME}module ${LIBRARY_NAME}impl ${LIBRARY_NAME}plugins)
 set_property (TARGET test_constructors
