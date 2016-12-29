@@ -26,8 +26,7 @@
 #include <ModuleManager.hpp>
 #include <MediaSet.hpp>
 
-#include <cstdio>
-#include <iostream>
+#define DIR_TEMPLATE "/tmp/recoder_test_XXXXXX"
 
 using namespace kurento;
 using namespace boost::unit_test;
@@ -51,7 +50,7 @@ GF::GF()
   boost::property_tree::ptree ac, audioCodecs, vc, videoCodecs;
   gst_init (NULL, NULL);
 
-  moduleManager.loadModulesFromDirectories ("../../src/server");
+  moduleManager.loadModulesFromDirectories ("../../src/server:../../..");
 
   mediaPipelineId = moduleManager.getFactory ("MediaPipeline")->createObject (
                       config, "",
@@ -88,10 +87,12 @@ createRecorderEndpoint ()
 {
   std::shared_ptr <kurento::MediaObjectImpl> recorderEndpoint;
   Json::Value constructorParams;
-  std::string tmp_file = std::tmpnam (nullptr);
+  gchar tmp_file_template[] = DIR_TEMPLATE;
+  gchar *tmp_file = mkdtemp (tmp_file_template);
 
   constructorParams ["mediaPipeline"] = mediaPipelineId;
-  constructorParams ["uri"] = "file://" + tmp_file;
+  constructorParams ["uri"] = "file://" + std::string (tmp_file) +
+                              "/recording.webm";
 
   recorderEndpoint = moduleManager.getFactory ("RecorderEndpoint")->createObject (
                        config, "",
@@ -222,21 +223,15 @@ recorder_state_changes ()
   src->connect (recorder);
 
   set_state (recorder, pause);
-  set_state (recorder, stop);
-  set_state (recorder, stop); /* No transition done */
-  set_state (recorder, pause);
+  set_state (recorder, pause); /* No transition done */
   set_state (recorder, start);
   set_state (recorder, pause);
   set_state (recorder, start);
   set_state (recorder, pause);
-  set_state (recorder, stop);
   set_state (recorder, pause);
   set_state (recorder, start);
   set_state (recorder, pause);
 
-  recorder->stopAndWait();
-
-  transited.store (false);
   set_state (recorder, start);
   set_state (recorder, pause);
   set_state (recorder, start);
@@ -285,8 +280,8 @@ recorder_state_changes ()
   std::cout << "pause_changes: " << pause_changes << std::endl;
 
   BOOST_CHECK_EQUAL (recording_changes, 7);
-  BOOST_CHECK_EQUAL (stop_changes, 4);
-  BOOST_CHECK_EQUAL (pause_changes, 9);
+  BOOST_CHECK_EQUAL (stop_changes, 1);
+  BOOST_CHECK_EQUAL (pause_changes, 7);
 
   BOOST_CHECK_EQUAL (recording_changes, start_changes);
 
