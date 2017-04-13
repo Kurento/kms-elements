@@ -18,5 +18,5 @@ override_dh_auto_configure:
 override_dh_strip:
 	dh_strip --dbg-package=kms-elements-6.0-dbg
 
-override_dh_auto_test:
-	dh_auto_build -- -j2 check ARGS=-j10
+#override_dh_auto_test:
+#	dh_auto_build -- -j2 check ARGS=-j10
