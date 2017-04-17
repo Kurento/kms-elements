@@ -35,7 +35,6 @@
 #define VIDEO_APPSRC "video_appsrc"
 #define URIDECODEBIN "uridecodebin"
 #define RTSPSRC "rtspsrc"
-#define SOUPHTTPSRC "souphttpsrc"
 
 #define APPSRC_KEY "appsrc-key"
 G_DEFINE_QUARK (APPSRC_KEY, appsrc);
