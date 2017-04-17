@@ -35,6 +35,7 @@
 #define VIDEO_APPSRC "video_appsrc"
 #define URIDECODEBIN "uridecodebin"
 #define RTSPSRC "rtspsrc"
+#define SOUPHTTPSRC "souphttpsrc"
 
 #define APPSRC_KEY "appsrc-key"
 G_DEFINE_QUARK (APPSRC_KEY, appsrc);
@@ -1202,8 +1203,13 @@ kms_player_endpoint_post_media_error (gpointer d)
 {
   ErrorData *data = d;
 
-  gst_element_post_message (GST_ELEMENT (data->self),
+  gboolean ok = gst_element_post_message (GST_ELEMENT (data->self),
       gst_message_ref (data->message));
+
+  if (!ok) {
+    GST_ERROR ("DID NOT POST MESSGE");
+    gst_message_unref (data->message);
+  }
 
   return G_SOURCE_REMOVE;
 }
@@ -1278,6 +1284,12 @@ element_added (GstBin * bin, GstElement * element, gpointer data)
   }
 }
 
+static gboolean
+process_bus_message (GstBus * bus, GstMessage * message, gpointer data)
+{
+  return TRUE;
+}
+
 static void
 kms_player_endpoint_init (KmsPlayerEndpoint * self)
 {
@@ -1307,6 +1319,10 @@ kms_player_endpoint_init (KmsPlayerEndpoint * self)
       G_CALLBACK (source_setup_cb), self);
   g_signal_connect (self->priv->uridecodebin, "element-added",
       G_CALLBACK (element_added), self);
+
+  /* Eat all async messages such as buffering messages */
+  bus = gst_pipeline_get_bus (GST_PIPELINE (self->priv->pipeline));
+  gst_bus_add_watch (bus, process_bus_message, NULL);
 
   g_object_set (self->priv->uridecodebin, "download", TRUE, NULL);
 
