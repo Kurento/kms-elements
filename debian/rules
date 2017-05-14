@@ -20,3 +20,4 @@ override_dh_strip:
 
 override_dh_auto_test:
 	dh_auto_build -- -j2 check ARGS=-j10
+
