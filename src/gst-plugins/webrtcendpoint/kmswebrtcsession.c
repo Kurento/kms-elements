@@ -308,6 +308,11 @@ kms_webrtc_session_remote_sdp_add_ice_candidate (KmsWebrtcSession *
     return;
   }
 
+  if(self->parent.conn_state == KMS_CONNECTION_STATE_CONNECTED) {
+    GST_WARNING_OBJECT(self, "Cannot add an ICE candidate to an already connected session!");
+    return;
+  }
+
   media = gst_sdp_message_get_media (sdp_sess->remote_sdp, index);
 
   if (media == NULL) {
@@ -340,6 +345,11 @@ kms_webrtc_session_set_remote_ice_candidate (KmsWebrtcSession * self,
         "Cannot add remote candidate until ICE Gathering is started: '%s'",
         kms_ice_candidate_get_candidate (candidate));
     return TRUE;                /* We do not know if the candidate is valid until it is set */
+  }
+
+  if(self->parent.conn_state == KMS_CONNECTION_STATE_CONNECTED) {
+    GST_WARNING_OBJECT(self, "Cannot add an ICE candidate to an already connected session!");
+    return FALSE;
   }
 
   len = gst_sdp_message_medias_len (sdp_sess->local_sdp);
