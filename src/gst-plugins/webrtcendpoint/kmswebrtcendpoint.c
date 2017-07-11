@@ -438,12 +438,19 @@ kms_webrtc_endpoint_add_ice_candidate (KmsWebrtcEndpoint * self,
       kms_ice_candidate_get_candidate (candidate), sess_id);
 
   sess = kms_base_sdp_endpoint_get_session (base_sdp_ep, sess_id);
+
   if (sess == NULL) {
     GST_ERROR_OBJECT (self, "There is not session '%s'", sess_id);
     return FALSE;
   }
 
   webrtc_sess = KMS_WEBRTC_SESSION (sess);
+
+  if(webrtc_sess->parent.conn_state == KMS_CONNECTION_STATE_CONNECTED) {
+    GST_WARNING_OBJECT(self, "Cannot add an ICE candidate to an already connected session!");
+    return FALSE;
+  }
+
   g_signal_emit_by_name (webrtc_sess, "add-ice-candidate", candidate, &ret);
 
   return ret;
