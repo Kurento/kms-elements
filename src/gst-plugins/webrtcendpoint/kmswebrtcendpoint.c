@@ -270,11 +270,12 @@ new_selected_pair_full (KmsWebrtcSession * sess,
 {
   KmsSdpSession *sdp_sess = KMS_SDP_SESSION (sess);
 
-  GST_DEBUG_OBJECT (self,
-      "New pair selected stream_id: %s, component_id: %d, local candidate: %s,"
-      " remote candidate: %s", stream_id, component_id,
+  GST_INFO_OBJECT (self,
+      "New candidate pair selected, local: '%s', remote: '%s'"
+      ", stream_id: '%s', component_id: %d",
       kms_ice_candidate_get_candidate (lcandidate),
-      kms_ice_candidate_get_candidate (rcandidate));
+      kms_ice_candidate_get_candidate (rcandidate),
+      stream_id, component_id);
 
   g_signal_emit (G_OBJECT (self),
       kms_webrtc_endpoint_signals[SIGNAL_NEW_SELECTED_PAIR_FULL], 0,
@@ -411,7 +412,7 @@ kms_webrtc_endpoint_gather_candidates (KmsWebrtcEndpoint * self,
   KmsWebrtcSession *webrtc_sess;
   gboolean ret = TRUE;
 
-  GST_DEBUG_OBJECT (self, "Gather candidates for session '%s'", sess_id);
+  GST_INFO_OBJECT (self, "Gather candidates for session '%s'", sess_id);
 
   sess = kms_base_sdp_endpoint_get_session (base_sdp_ep, sess_id);
   if (sess == NULL) {
@@ -434,7 +435,7 @@ kms_webrtc_endpoint_add_ice_candidate (KmsWebrtcEndpoint * self,
   KmsWebrtcSession *webrtc_sess;
   gboolean ret;
 
-  GST_DEBUG_OBJECT (self, "Add ICE candidate '%s' for session '%s'",
+  GST_INFO_OBJECT (self, "Add ICE candidate '%s' for session '%s'",
       kms_ice_candidate_get_candidate (candidate), sess_id);
 
   sess = kms_base_sdp_endpoint_get_session (base_sdp_ep, sess_id);
@@ -732,7 +733,7 @@ kms_webrtc_endpoint_class_init (KmsWebrtcEndpointClass * klass)
       G_TYPE_STRING, KMS_TYPE_ICE_CANDIDATE);
 
   /**
-  * KmsWebrtcEndpoint::on-candidate-gathering-done:
+  * KmsWebrtcEndpoint::on-ice-gathering-done:
   * @self: the object which received the signal
   * @sess_id: id of the related WebRTC session
   * @stream_id: The ID of the stream

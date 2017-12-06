@@ -47,7 +47,7 @@ set(VERSION ${PROJECT_VERSION})
 set(PACKAGE ${PROJECT_NAME})
 set(GETTEXT_PACKAGE "kms-elements")
 set(MANUAL_CHECK OFF CACHE BOOL "Tests will generate files")
-set(BINARY_LOCATION "http://files.kurento.org/" CACHE STRING "Local binary directory expressed as an URI ( http:// or file:/// )")
+set(BINARY_LOCATION "http://files.kurento.org/" CACHE STRING "Storage with test files (as an URI, http:// or file:///)")
 include(GNUInstallDirs)
 set(KURENTO_MODULES_SO_DIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${KURENTO_MODULES_DIR_INSTALL_PREFIX})
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h)
@@ -82,6 +82,13 @@ generic_find(LIBNAME openssl REQUIRED)
 set(CMAKE_INSTALL_GST_PLUGINS_DIR ${CMAKE_INSTALL_LIBDIR}/gstreamer-1.5)
 
 enable_testing()
+
+# Used by test "webrtcendpoint" and kmsiceniceagent
+# Enabled if the system has libnice >=0.1.14
+if(NOT nice_VERSION VERSION_LESS "0.1.14")
+  message(STATUS "libnice version >= 0.1.14, enable specific tests")
+  add_definitions(-DHAVE_LIBNICE_0_1_14)
+endif()
 
 add_subdirectory(src)
 add_subdirectory(tests)
