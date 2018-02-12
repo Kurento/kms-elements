@@ -18,7 +18,7 @@
 #include "config.h"
 #endif
 
-#define _GNU_SOURCE // Enable GNU Extensions: 'ALLPERMS' is not POSIX
+#define _GNU_SOURCE             // Enable GNU Extensions: 'ALLPERMS' is not POSIX
 #include <sys/stat.h>
 
 #include <string.h>
@@ -1179,7 +1179,7 @@ kms_recorder_endpoint_add_appsink (KmsRecorderEndpoint * self,
   appsink = gst_element_factory_make ("appsink", NULL);
 
   g_object_set (appsink, "emit-signals", FALSE, "async", FALSE,
-      "sync", FALSE, "qos", FALSE, NULL);
+      "sync", FALSE, "qos", FALSE, "max-buffers", 2, NULL);
 
   gst_bin_add (GST_BIN (self), appsink);
 

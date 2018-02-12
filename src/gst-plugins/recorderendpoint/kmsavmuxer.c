@@ -206,9 +206,13 @@ kms_av_muxer_prepare_pipeline (KmsAVMuxer * self)
       (self), KMS_BASE_MEDIA_MUXER_GET_URI (self));
 
   g_object_set (self->priv->videosrc, "block", TRUE, "format", GST_FORMAT_TIME,
-      "max-bytes", 0, NULL);
+      "is-live", TRUE, "do-timestamp", TRUE, "min-latency",
+      G_GUINT64_CONSTANT (0), "max-latency", G_GUINT64_CONSTANT (0),
+      "emit-signals", FALSE, "max-bytes", 1000000, NULL);
   g_object_set (self->priv->audiosrc, "block", TRUE, "format", GST_FORMAT_TIME,
-      "max-bytes", 0, NULL);
+      "is-live", TRUE, "do-timestamp", TRUE, "min-latency",
+      G_GUINT64_CONSTANT (0), "max-latency", G_GUINT64_CONSTANT (0),
+      "emit-signals", FALSE, "max-bytes", 100000, NULL);
 
   self->priv->mux = kms_av_muxer_create_muxer (self);
 
