@@ -353,9 +353,6 @@ kms_player_endpoint_dispose (GObject * object)
     self->priv->pipeline = NULL;
   }
 
-  g_free (self->priv->port_range);
-  self->priv->port_range = NULL;
-
   /* clean up as possible. May be called multiple times */
 
   G_OBJECT_CLASS (kms_player_endpoint_parent_class)->dispose (object);
