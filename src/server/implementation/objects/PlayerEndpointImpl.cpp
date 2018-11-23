@@ -36,7 +36,7 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define PIPELINE "pipeline"
 #define SET_POSITION "set-position"
 #define NS_TO_MS 1000000
-#define RTSP_SRC_PORT_RANGE "rtspSrcPortRange"
+#define RTSP_CLIENT_PORT_RANGE "rtspClientPortRange"
 
 namespace kurento
 {
@@ -109,10 +109,10 @@ PlayerEndpointImpl::PlayerEndpointImpl (const boost::property_tree::ptree &conf,
                 "network-cache", networkCache, NULL);
 
   try {
-    std::string portRange = getConfigValue <std::string, PlayerEndpoint> (RTSP_SRC_PORT_RANGE);
+    std::string portRange = getConfigValue <std::string, PlayerEndpoint> (RTSP_CLIENT_PORT_RANGE);
     g_object_set (G_OBJECT (element), "port-range", portRange.c_str(), NULL);
   } catch (boost::property_tree::ptree_error &) {
-    GST_DEBUG ("PlayerEndpoint config file doesn't contain property %s. Ignoring.", RTSP_SRC_PORT_RANGE);
+    GST_DEBUG ("PlayerEndpoint config file doesn't contain property %s. Ignoring.", RTSP_CLIENT_PORT_RANGE);
   }
 }
 

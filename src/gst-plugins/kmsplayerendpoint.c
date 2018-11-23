@@ -1100,8 +1100,8 @@ kms_player_endpoint_class_init (KmsPlayerEndpointClass * klass)
           G_PARAM_READWRITE | GST_PARAM_MUTABLE_READY));
 
   g_object_class_install_property (gobject_class, PROP_PORT_RANGE,
-      g_param_spec_string ("port-range", "UDP Port range for RTSP source",
-          "When using rtsp sources, what range of UDP ports can be allocated",
+      g_param_spec_string ("port-range", "UDP Port range for RTSP client",
+          "Range of ports that can be allocated when acting as RTSP client",
           PORT_RANGE_DEFAULT, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class, PROP_PIPELINE,
