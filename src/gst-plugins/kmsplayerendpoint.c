@@ -353,6 +353,9 @@ kms_player_endpoint_dispose (GObject * object)
     self->priv->pipeline = NULL;
   }
 
+  g_free (self->priv->port_range);
+  self->priv->port_range = NULL;
+
   /* clean up as possible. May be called multiple times */
 
   G_OBJECT_CLASS (kms_player_endpoint_parent_class)->dispose (object);
@@ -368,6 +371,9 @@ kms_player_endpoint_finalize (GObject * object)
   g_mutex_clear (&self->priv->base_time_mutex);
   g_clear_object (&self->priv->stats.src);
   kms_list_unref (self->priv->stats.probes);
+
+  g_free (self->priv->port_range);
+  self->priv->port_range = NULL;
 
   G_OBJECT_CLASS (kms_player_endpoint_parent_class)->finalize (object);
 }
