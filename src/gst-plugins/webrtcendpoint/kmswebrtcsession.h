@@ -70,6 +70,8 @@ struct _KmsWebrtcSession
   guint turn_port;
   TurnProtocol turn_transport;
   gchar *pem_certificate;
+  gchar *external_ips;
+  GSList *ip_list;
 
   guint16 min_port;
   guint16 max_port;

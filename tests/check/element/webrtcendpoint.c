@@ -1947,8 +1947,8 @@ GST_START_TEST (test_webrtc_data_channel)
   /* Check data channels in a dedicated connection */
   test_data_channels (FALSE);
 }
-GST_END_TEST
 
+GST_END_TEST
 /* Video tests */
 static GstStaticCaps vp8_expected_caps = GST_STATIC_CAPS ("video/x-vp8");
 
@@ -1963,9 +1963,9 @@ GST_START_TEST (test_vp8_sendonly_recvonly)
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", TRUE, FALSE,
       TRUE, NULL);
 }
-GST_END_TEST
 
-const gchar *rsa_pem = "-----BEGIN PRIVATE KEY-----\r\n"
+GST_END_TEST
+    const gchar *rsa_pem = "-----BEGIN PRIVATE KEY-----\r\n"
     "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCb+LTrbVIUWgpo\r\n"
     "2P1xIONodNWBZrjKoSiuDFgmwHvRtbsHu3/wVHBw8aCgMfSAkx5fr/qE3V2u9Ufc\r\n"
     "OF2Sm2+n6FpSl4n3Y0Pj06GkoZ3G2Q68Pce53jOpud1TJbFT9cPl4zUnz+36fczB\r\n"
@@ -2015,9 +2015,9 @@ GST_START_TEST (test_vp8_sendonly_recvonly_rsa)
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, FALSE,
       FALSE, rsa_pem);
 }
-GST_END_TEST
 
-const gchar *ecdsa_pem = "-----BEGIN EC PARAMETERS-----\r\n"
+GST_END_TEST
+    const gchar *ecdsa_pem = "-----BEGIN EC PARAMETERS-----\r\n"
     "BggqhkjOPQMBBw==\r\n"
     "-----END EC PARAMETERS-----\r\n"
     "-----BEGIN EC PRIVATE KEY-----\r\n"
@@ -2039,16 +2039,16 @@ GST_START_TEST (test_vp8_sendonly_recvonly_ecdsa)
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, FALSE,
       FALSE, ecdsa_pem);
 }
-GST_END_TEST
 
+GST_END_TEST
 GST_START_TEST (test_vp8_sendrecv)
 {
   test_video_sendrecv ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, FALSE);
   test_video_sendrecv ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, TRUE);
   test_video_sendrecv ("vp8enc", vp8_expected_caps, "VP8/90000", TRUE, TRUE);
 }
-GST_END_TEST
 
+GST_END_TEST
 GST_START_TEST (test_vp8_sendrecv_but_sendonly)
 {
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", TRUE, FALSE,
@@ -2056,8 +2056,8 @@ GST_START_TEST (test_vp8_sendrecv_but_sendonly)
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, FALSE,
       FALSE, NULL);
 }
-GST_END_TEST
 
+GST_END_TEST
 /* Audio tests */
 static GstStaticCaps pcmu_expected_caps = GST_STATIC_CAPS ("audio/x-mulaw");
 
@@ -2066,8 +2066,8 @@ GST_START_TEST (test_pcmu_sendrecv)
   test_audio_sendrecv ("mulawenc", pcmu_expected_caps, "PCMU/8000", FALSE);
   test_audio_sendrecv ("mulawenc", pcmu_expected_caps, "PCMU/8000", TRUE);
 }
-GST_END_TEST
 
+GST_END_TEST
 /* Audio and video tests */
 GST_START_TEST (test_pcmu_vp8_sendonly_recvonly)
 {
@@ -2076,8 +2076,8 @@ GST_START_TEST (test_pcmu_vp8_sendonly_recvonly)
   test_audio_video_sendonly_recvonly ("mulawenc", pcmu_expected_caps,
       "PCMU/8000", "vp8enc", vp8_expected_caps, "VP8/90000", TRUE);
 }
-GST_END_TEST
 
+GST_END_TEST
 GST_START_TEST (test_pcmu_vp8_sendrecv)
 {
   test_audio_video_sendrecv ("mulawenc", pcmu_expected_caps, "PCMU/8000",
@@ -2085,8 +2085,8 @@ GST_START_TEST (test_pcmu_vp8_sendrecv)
   test_audio_video_sendrecv ("mulawenc", pcmu_expected_caps, "PCMU/8000",
       "vp8enc", vp8_expected_caps, "VP8/90000", TRUE);
 }
-GST_END_TEST
 
+GST_END_TEST
 #ifndef HAVE_LIBNICE_0_1_14
 GST_START_TEST (test_offerer_pcmu_vp8_answerer_vp8_sendrecv)
 {
@@ -2097,9 +2097,9 @@ GST_START_TEST (test_offerer_pcmu_vp8_answerer_vp8_sendrecv)
       pcmu_expected_caps, "PCMU/8000", "vp8enc", vp8_expected_caps, "VP8/90000",
       TRUE);
 }
+
 GST_END_TEST
 #endif // HAVE_LIBNICE_0_1_14
-
 GST_START_TEST (test_remb_params)
 {
   GArray *codecs_array;
@@ -2200,8 +2200,8 @@ GST_START_TEST (test_remb_params)
   g_free (offerer_sess_id);
   g_free (answerer_sess_id);
 }
-GST_END_TEST
 
+GST_END_TEST
 GST_START_TEST (test_session_creation)
 {
   gchar *sess_id;
@@ -2222,9 +2222,8 @@ GST_START_TEST (test_session_creation)
 
   g_object_unref (webrtcendpoint);
 }
-GST_END_TEST
 
-typedef struct _CandidateRangeData
+GST_END_TEST typedef struct _CandidateRangeData
 {
   guint min_port;
   guint max_port;
@@ -2290,9 +2289,8 @@ GST_START_TEST (test_port_range)
   g_object_unref (offerer);
   g_free (offerer_sess_id);
 }
-GST_END_TEST
 
-static void
+GST_END_TEST static void
 not_enough_ports_on_ice_candidate (GstElement * self, gchar * sess_id,
     KmsIceCandidate * candidate, gpointer offerer_num_pt)
 {
@@ -2402,9 +2400,8 @@ GST_START_TEST (test_not_enough_ports)
   g_free (offerer_sess_id);
   g_free (second_offerer_sess_id);
 }
-GST_END_TEST
 
-static void
+GST_END_TEST static void
 on_ice_candidate_check_mid (GstElement * self, gchar * sess_id,
     KmsIceCandidate * candidate, const gchar * expected_mid)
 {
@@ -2495,8 +2492,78 @@ GST_START_TEST (process_mid_no_bundle_offer)
   g_object_unref (webrtcendpoint);
   g_free (sess_id);
 }
-GST_END_TEST
 
+GST_END_TEST
+/**
+ * On ICE Candidate event handler for testing ICE candidate IP.
+ * Checks assertion:
+ *   ICE Candidate IP has expected value.
+ *
+ * @param self         webrtcendpoint instance.
+ * @param sess_id      webrtcsession ID.
+ * @param candidate    ICE Candidate.
+ * @param expected_ip  expected IP address.
+ */
+    static void
+on_ice_candidate_check_ip (GstElement * self, gchar * sess_id,
+    KmsIceCandidate * candidate, const gchar * expected_ip)
+{
+  const gchar *candidate_ip;
+
+  candidate_ip = kms_ice_candidate_get_address (candidate);
+
+  assert_equals_string (candidate_ip, expected_ip);
+}
+
+/**
+ * Tests setting external IP for gathering of ICE Candidate.
+ *
+ * @param __i__
+ */
+GST_START_TEST (set_external_ips_test)
+{
+  GArray *audio_codecs_array, *video_codecs_array;
+  gchar *audio_codecs[] = { "opus/48000/1", NULL };
+  gchar *video_codecs[] = { "VP8/90000", NULL };
+  GstElement *webrtcendpoint =
+      gst_element_factory_make ("webrtcendpoint", NULL);
+  gchar *sess_id;
+  GstSDPMessage *offer = NULL, *answer = NULL;
+  gboolean ret;
+
+  g_object_set (webrtcendpoint, "external-ips", "127.0.0.1", NULL);
+  static const gchar *offer_str = "v=0\r\n"
+      "o=mozilla...THIS_IS_SDPARTA-43.0 4115481872190049086 0 IN IP4 0.0.0.0\r\n"
+      "a=ice-options:trickle\r\n"
+      "a=msid-semantic:WMS *\r\n"
+      "m=video 9 UDP/TLS/RTP/SAVPF 120\r\n"
+      "c=IN IP4 0.0.0.0\r\n"
+      "a=sendrecv\r\n" "a=mid:sdparta_0\r\n" "a=rtpmap:120 VP8/90000\r\n";
+
+  audio_codecs_array = create_codecs_array (audio_codecs);
+  video_codecs_array = create_codecs_array (video_codecs);
+  g_object_set (webrtcendpoint, "num-audio-medias", 1, "audio-codecs",
+      g_array_ref (audio_codecs_array), "num-video-medias", 1, "video-codecs",
+      g_array_ref (video_codecs_array), NULL);
+
+  g_array_unref (audio_codecs_array);
+  g_array_unref (video_codecs_array);
+  g_signal_connect (G_OBJECT (webrtcendpoint), "on-ice-candidate",
+      G_CALLBACK (on_ice_candidate_check_ip), "127.0.0.1");
+
+  fail_unless (gst_sdp_message_new (&offer) == GST_SDP_OK);
+  fail_unless (gst_sdp_message_parse_buffer ((const guint8 *)
+          offer_str, -1, offer) == GST_SDP_OK);
+  g_signal_emit_by_name (webrtcendpoint, "create-session", &sess_id);
+  g_signal_emit_by_name (webrtcendpoint, "process-offer", sess_id, offer,
+      &answer);
+  g_signal_emit_by_name (webrtcendpoint, "gather-candidates", sess_id, &ret);
+  fail_unless (ret);
+  g_object_unref (webrtcendpoint);
+  g_free (sess_id);
+}
+
+GST_END_TEST
 /*
  * End of test cases
  */
@@ -2540,6 +2607,7 @@ webrtcendpoint_test_suite (void)
   //tcase_add_test (tc_chain, test_webrtc_data_channel);
 
   tcase_add_test (tc_chain, process_mid_no_bundle_offer);
+  tcase_add_test (tc_chain, set_external_ips_test);
 
   return s;
 }

@@ -55,6 +55,7 @@ G_DEFINE_TYPE (KmsWebrtcSession, kms_webrtc_session, KMS_TYPE_BASE_RTP_SESSION);
 #define DEFAULT_STUN_TURN_URL NULL
 #define DEFAULT_DATA_CHANNELS_SUPPORTED FALSE
 #define DEFAULT_PEM_CERTIFICATE NULL
+#define DEFAULT_EXTERNAL_IPS NULL
 
 #define IP_VERSION_6 6
 
@@ -87,6 +88,7 @@ enum
   PROP_TURN_URL,                /* user:password@address:port?transport=[udp|tcp|tls] */
   PROP_DATA_CHANNEL_SUPPORTED,
   PROP_PEM_CERTIFICATE,
+  PROP_EXTERNAL_IPS,
   N_PROPERTIES
 };
 
@@ -302,15 +304,11 @@ kms_webrtc_session_remote_sdp_add_ice_candidate (KmsWebrtcSession *
 
   if (sdp_sess->remote_sdp == NULL) {
     GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self,
-        "Adding remote candidate to remote SDP:"
-        " Remote SDP still unset");
+        "Adding remote candidate to remote SDP:" " Remote SDP still unset");
     if (allow_error) {
-      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self,
-          "... (Will add later)");
-    }
-    else {
-      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self,
-          "... (Error)");
+      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self, "... (Will add later)");
+    } else {
+      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self, "... (Error)");
     }
     return;
   }
@@ -338,8 +336,8 @@ kms_webrtc_session_remote_sdp_add_ice_candidate (KmsWebrtcSession *
 }
 
 static void
-kms_webrtc_session_remote_sdp_add_stored_ice_candidates (KmsWebrtcSession *self,
-    gboolean allow_error)
+kms_webrtc_session_remote_sdp_add_stored_ice_candidates (KmsWebrtcSession *
+    self, gboolean allow_error)
 {
   guint i;
   guint len = g_slist_length (self->remote_candidates);
@@ -347,7 +345,8 @@ kms_webrtc_session_remote_sdp_add_stored_ice_candidates (KmsWebrtcSession *self,
   for (i = 0; i < len; i++) {
     KmsIceCandidate *candidate = g_slist_nth_data (self->remote_candidates, i);
 
-    kms_webrtc_session_remote_sdp_add_ice_candidate (self, candidate, allow_error);
+    kms_webrtc_session_remote_sdp_add_ice_candidate (self, candidate,
+        allow_error);
   }
 }
 
@@ -368,27 +367,20 @@ kms_webrtc_session_agent_add_ice_candidate (KmsWebrtcSession * self,
         "Adding remote candidate to ICE Agent:"
         " ICE Gathering not started yet");
     if (allow_error) {
-      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self,
-          "... (Will add later)");
-    }
-    else {
-      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self,
-          "... (Error)");
+      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self, "... (Will add later)");
+    } else {
+      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self, "... (Error)");
     }
     return allow_error;
   }
 
   if (sdp_sess->local_sdp == NULL) {
     GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self,
-        "Adding remote candidate to ICE Agent:"
-        " Local SDP not generated yet");
+        "Adding remote candidate to ICE Agent:" " Local SDP not generated yet");
     if (allow_error) {
-      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self,
-          "... (Will add later)");
-    }
-    else {
-      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self,
-          "... (Error)");
+      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self, "... (Will add later)");
+    } else {
+      GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, dbg, self, "... (Error)");
     }
     return allow_error;
   }
@@ -440,8 +432,7 @@ kms_webrtc_session_agent_add_ice_candidate (KmsWebrtcSession * self,
     return FALSE;
   }
 
-  if (!kms_ice_base_agent_add_ice_candidate (self->agent, candidate,
-      stream_id)) {
+  if (!kms_ice_base_agent_add_ice_candidate (self->agent, candidate, stream_id)) {
     GST_ERROR_OBJECT (self,
         "Adding remote candidate to ICE Agent:"
         " Agent failed, stream_id: '%s'", stream_id);
@@ -465,7 +456,7 @@ kms_webrtc_session_agent_add_stored_ice_candidates (KmsWebrtcSession * self,
     KmsIceCandidate *candidate = g_slist_nth_data (self->remote_candidates, i);
 
     if (!kms_webrtc_session_agent_add_ice_candidate (self, candidate,
-        allow_error)) {
+            allow_error)) {
       return;
     }
   }
@@ -1539,8 +1530,7 @@ kms_webrtc_session_start_transport_send (KmsWebrtcSession * self,
     // Allow errors: FALSE, because at this point the remote SDP should have been
     // received already, and the gathering process is started already
     kms_webrtc_session_agent_add_stored_ice_candidates (self, FALSE);
-  }
-  else {
+  } else {
     GST_DEBUG_OBJECT (self, "Start transport:"
         " Not adding stored remote candidates (ICE Gathering not started)");
   }
@@ -1625,6 +1615,7 @@ kms_webrtc_session_parse_turn_url (KmsWebrtcSession * self)
 
     GString *safe_url = g_string_new ("<user:password>");
     gchar *separated_url = g_strrstr (self->turn_url, "@");
+
     if (separated_url == NULL) {
       g_string_append_c (safe_url, '@');
       g_string_append (safe_url, self->turn_url);
@@ -1669,6 +1660,10 @@ kms_webrtc_session_set_property (GObject * object, guint prop_id,
       g_free (self->pem_certificate);
       self->pem_certificate = g_value_dup_string (value);
       break;
+    case PROP_EXTERNAL_IPS:
+      g_free (self->external_ips);
+      self->external_ips = g_value_dup_string (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -1701,6 +1696,9 @@ kms_webrtc_session_get_property (GObject * object, guint prop_id,
     case PROP_PEM_CERTIFICATE:
       g_value_set_string (value, self->pem_certificate);
       break;
+    case PROP_EXTERNAL_IPS:
+      g_value_set_string (value, self->external_ips);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -1726,6 +1724,8 @@ kms_webrtc_session_finalize (GObject * object)
   g_free (self->turn_password);
   g_free (self->turn_address);
   g_free (self->pem_certificate);
+  g_free (self->external_ips);
+  g_slist_free (self->ip_list);
 
   if (self->destroy_data != NULL && self->cb_data != NULL) {
     self->destroy_data (self->cb_data);
@@ -1763,19 +1763,48 @@ kms_webrtc_session_new_selected_pair_full (KmsIceBaseAgent * agent,
       "New candidate pair selected, local: '%s', remote: '%s'"
       ", stream_id: '%s', component_id: %d",
       kms_ice_candidate_get_candidate (lcandidate),
-      kms_ice_candidate_get_candidate (rcandidate),
-      stream_id, component_id);
+      kms_ice_candidate_get_candidate (rcandidate), stream_id, component_id);
 
   g_signal_emit (G_OBJECT (self),
       kms_webrtc_session_signals[SIGNAL_NEW_SELECTED_PAIR_FULL], 0, stream_id,
       component_id, lcandidate, rcandidate);
 }
 
+/**
+ * Parse comma separated string which contains IP addresses for gathering ICE Candidates
+ * into GSList *
+ *
+ * @param ips comma separated string
+ * @return GSList *
+ */
+static GSList *
+kms_parse_external_ips (gchar * ips)
+{
+  if (ips == NULL) {
+    return NULL;
+  }
+  GSList *ips_list = NULL;
+  gchar **tokens = NULL;
+  guint i;
+
+  tokens = g_strsplit (ips, ",", -1);
+  for (i = 0; tokens[i]; i++) {
+    if (tokens[i] != NULL) {
+      ips_list = g_slist_append (ips_list, tokens[i]);
+    }
+  }
+  g_free (tokens);
+  return ips_list;
+}
+
 static void
 kms_webrtc_session_init_ice_agent (KmsWebrtcSession * self)
 {
-  self->agent = KMS_ICE_BASE_AGENT (kms_ice_nice_agent_new (self->context));
-
+  g_slist_free (self->ip_list);
+  self->ip_list = kms_parse_external_ips (self->external_ips);
+  self->agent =
+      KMS_ICE_BASE_AGENT (kms_ice_nice_agent_new (self->context,
+          self->ip_list));
   kms_ice_base_agent_run_agent (self->agent);
 
   g_signal_connect (self->agent, "on-ice-candidate",
@@ -1833,6 +1862,7 @@ kms_webrtc_session_init (KmsWebrtcSession * self)
   self->stun_server_port = DEFAULT_STUN_SERVER_PORT;
   self->turn_url = DEFAULT_STUN_TURN_URL;
   self->gather_started = FALSE;
+  self->external_ips = DEFAULT_EXTERNAL_IPS;
 
   self->data_channels = g_hash_table_new_full (g_direct_hash,
       g_direct_equal, NULL, (GDestroyNotify) kms_ref_struct_unref);
@@ -1931,6 +1961,12 @@ kms_webrtc_session_class_init (KmsWebrtcSessionClass * klass)
           "True if data channels are negotiated and supported",
           DEFAULT_DATA_CHANNELS_SUPPORTED,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_EXTERNAL_IPS,
+      g_param_spec_string ("external-ips",
+          "ExternalIPs",
+          "Local IP addresses for generate local ICE Candidates",
+          DEFAULT_EXTERNAL_IPS, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   /**
   * KmsWebrtcSession::on-ice-candidate:

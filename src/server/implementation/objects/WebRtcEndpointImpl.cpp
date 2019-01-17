@@ -86,7 +86,7 @@ remove_not_supported_codecs_from_array (GstElement *element, GArray *codecs)
 
     for (auto &supported_codec : supported_codecs) {
 
-      if (boost::istarts_with(codec_name, supported_codec)) {
+      if (boost::istarts_with (codec_name, supported_codec) ) {
         supported = TRUE;
         break;
       }
@@ -126,7 +126,7 @@ check_support_for_h264 ()
     return;
   }
 
-  supported_codecs.emplace_back("H264");
+  supported_codecs.emplace_back ("H264");
   gst_object_unref (plugin);
 }
 
@@ -290,11 +290,11 @@ void WebRtcEndpointImpl::newSelectedPairFull (gchar *sessId,
   std::map<std::string, std::shared_ptr <IceCandidatePair>>::iterator it;
 
   GST_DEBUG_OBJECT (element,
-      "New candidate pair selected, local: '%s', remote: '%s'"
-      ", stream_id: '%s', component_id: %d",
-      kms_ice_candidate_get_candidate (localCandidate),
-      kms_ice_candidate_get_candidate (remoteCandidate),
-      streamId, componentId);
+                    "New candidate pair selected, local: '%s', remote: '%s'"
+                    ", stream_id: '%s', component_id: %d",
+                    kms_ice_candidate_get_candidate (localCandidate),
+                    kms_ice_candidate_get_candidate (remoteCandidate),
+                    streamId, componentId);
 
   candidatePair = std::make_shared< IceCandidatePair > (streamId,
                   componentId,
@@ -439,6 +439,7 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
   uint stunPort;
   std::string stunAddress;
   std::string turnURL;
+  std::string externalIPs;
 
   std::call_once (check_openh264, check_support_for_h264);
   std::call_once (certificates_flag,
@@ -476,8 +477,8 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
                 " NAT traversal requires either STUN or TURN server");
     }
 
-    if (!stunAddress.empty()) {
-      GST_INFO ("Using STUN reflexive server IP: %s", stunAddress.c_str());
+    if (!stunAddress.empty() ) {
+      GST_INFO ("Using STUN reflexive server IP: %s", stunAddress.c_str() );
       GST_INFO ("Using STUN reflexive server Port: %d", stunPort);
 
       g_object_set (G_OBJECT (element), "stun-server-port", stunPort, NULL);
@@ -489,18 +490,32 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
     turnURL = getConfigValue <std::string, WebRtcEndpoint> ("turnURL");
 
     std::string safeURL = "<user:password>";
-    size_t separatorPos = turnURL.find_last_of('@');
+    size_t separatorPos = turnURL.find_last_of ('@');
+
     if (separatorPos == std::string::npos) {
-      safeURL.append("@").append(turnURL);
+      safeURL.append ("@").append (turnURL);
     } else {
-      safeURL.append(turnURL.substr(separatorPos));
+      safeURL.append (turnURL.substr (separatorPos) );
     }
-    GST_INFO ("Using TURN relay server: %s", safeURL.c_str());
+
+    GST_INFO ("Using TURN relay server: %s", safeURL.c_str() );
 
     g_object_set (G_OBJECT (element), "turn-url", turnURL.c_str(), NULL);
   } catch (boost::property_tree::ptree_error &) {
     GST_INFO ("TURN server IP address not found in config;"
               " NAT traversal requires either STUN or TURN server");
+  }
+
+  try {
+    externalIPs = getConfigValue <std::string, WebRtcEndpoint> ("externalIPs");
+    GST_INFO ("Describe external IPs: %s", externalIPs.c_str() );
+  } catch (boost::property_tree::ptree_error &) {
+    GST_INFO ("External IP address not found in config;"
+              "Discover IP's automatically");
+  }
+
+  if (!externalIPs.empty() ) {
+    g_object_set (G_OBJECT (element), "external-ips", externalIPs.c_str(), NULL);
   }
 
   switch (certificateKeyType->getValue () ) {
@@ -669,8 +684,8 @@ WebRtcEndpointImpl::addIceCandidate (std::shared_ptr<IceCandidate> candidate)
   std::string cand_str = candidate->getCandidate();
   std::string mid_str = candidate->getSdpMid ();
   guint8 sdp_m_line_index = candidate->getSdpMLineIndex ();
-  KmsIceCandidate *cand = kms_ice_candidate_new(
-      cand_str.c_str(), mid_str.c_str(), sdp_m_line_index, nullptr);
+  KmsIceCandidate *cand = kms_ice_candidate_new (
+                            cand_str.c_str(), mid_str.c_str(), sdp_m_line_index, nullptr);
 
   if (cand) {
     g_signal_emit_by_name (element, "add-ice-candidate", this->sessId.c_str (),
