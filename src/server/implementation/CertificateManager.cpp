@@ -184,8 +184,13 @@ CertificateManager::generateRSACertificate ()
   std::string pem;
   std::string rsaKey;
   std::string certificateRSA;
+  BIGNUM *e;
 
-  rsa = RSA_generate_key(2048, RSA_F4, nullptr, nullptr);
+  rsa = RSA_new();
+  e = BN_new();
+  BN_set_word(e, RSA_F4);
+
+  RSA_generate_key_ex(rsa, 2048, e, NULL);
 
   if (rsa == nullptr) {
     GST_ERROR ("RSA not created");
