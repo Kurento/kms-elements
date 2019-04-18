@@ -1947,8 +1947,8 @@ GST_START_TEST (test_webrtc_data_channel)
   /* Check data channels in a dedicated connection */
   test_data_channels (FALSE);
 }
-
 GST_END_TEST
+
 /* Video tests */
 static GstStaticCaps vp8_expected_caps = GST_STATIC_CAPS ("video/x-vp8");
 
@@ -1963,9 +1963,9 @@ GST_START_TEST (test_vp8_sendonly_recvonly)
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", TRUE, FALSE,
       TRUE, NULL);
 }
-
 GST_END_TEST
-    const gchar *rsa_pem = "-----BEGIN PRIVATE KEY-----\r\n"
+
+const gchar *rsa_pem = "-----BEGIN PRIVATE KEY-----\r\n"
     "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCb+LTrbVIUWgpo\r\n"
     "2P1xIONodNWBZrjKoSiuDFgmwHvRtbsHu3/wVHBw8aCgMfSAkx5fr/qE3V2u9Ufc\r\n"
     "OF2Sm2+n6FpSl4n3Y0Pj06GkoZ3G2Q68Pce53jOpud1TJbFT9cPl4zUnz+36fczB\r\n"
@@ -2015,9 +2015,9 @@ GST_START_TEST (test_vp8_sendonly_recvonly_rsa)
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, FALSE,
       FALSE, rsa_pem);
 }
-
 GST_END_TEST
-    const gchar *ecdsa_pem = "-----BEGIN EC PARAMETERS-----\r\n"
+
+const gchar *ecdsa_pem = "-----BEGIN EC PARAMETERS-----\r\n"
     "BggqhkjOPQMBBw==\r\n"
     "-----END EC PARAMETERS-----\r\n"
     "-----BEGIN EC PRIVATE KEY-----\r\n"
@@ -2039,16 +2039,16 @@ GST_START_TEST (test_vp8_sendonly_recvonly_ecdsa)
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, FALSE,
       FALSE, ecdsa_pem);
 }
-
 GST_END_TEST
+
 GST_START_TEST (test_vp8_sendrecv)
 {
   test_video_sendrecv ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, FALSE);
   test_video_sendrecv ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, TRUE);
   test_video_sendrecv ("vp8enc", vp8_expected_caps, "VP8/90000", TRUE, TRUE);
 }
-
 GST_END_TEST
+
 GST_START_TEST (test_vp8_sendrecv_but_sendonly)
 {
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", TRUE, FALSE,
@@ -2056,8 +2056,8 @@ GST_START_TEST (test_vp8_sendrecv_but_sendonly)
   test_video_sendonly ("vp8enc", vp8_expected_caps, "VP8/90000", FALSE, FALSE,
       FALSE, NULL);
 }
-
 GST_END_TEST
+
 /* Audio tests */
 static GstStaticCaps pcmu_expected_caps = GST_STATIC_CAPS ("audio/x-mulaw");
 
@@ -2066,8 +2066,8 @@ GST_START_TEST (test_pcmu_sendrecv)
   test_audio_sendrecv ("mulawenc", pcmu_expected_caps, "PCMU/8000", FALSE);
   test_audio_sendrecv ("mulawenc", pcmu_expected_caps, "PCMU/8000", TRUE);
 }
-
 GST_END_TEST
+
 /* Audio and video tests */
 GST_START_TEST (test_pcmu_vp8_sendonly_recvonly)
 {
@@ -2076,8 +2076,8 @@ GST_START_TEST (test_pcmu_vp8_sendonly_recvonly)
   test_audio_video_sendonly_recvonly ("mulawenc", pcmu_expected_caps,
       "PCMU/8000", "vp8enc", vp8_expected_caps, "VP8/90000", TRUE);
 }
-
 GST_END_TEST
+
 GST_START_TEST (test_pcmu_vp8_sendrecv)
 {
   test_audio_video_sendrecv ("mulawenc", pcmu_expected_caps, "PCMU/8000",
@@ -2085,8 +2085,8 @@ GST_START_TEST (test_pcmu_vp8_sendrecv)
   test_audio_video_sendrecv ("mulawenc", pcmu_expected_caps, "PCMU/8000",
       "vp8enc", vp8_expected_caps, "VP8/90000", TRUE);
 }
-
 GST_END_TEST
+
 #ifndef HAVE_LIBNICE_0_1_14
 GST_START_TEST (test_offerer_pcmu_vp8_answerer_vp8_sendrecv)
 {
@@ -2097,9 +2097,9 @@ GST_START_TEST (test_offerer_pcmu_vp8_answerer_vp8_sendrecv)
       pcmu_expected_caps, "PCMU/8000", "vp8enc", vp8_expected_caps, "VP8/90000",
       TRUE);
 }
-
 GST_END_TEST
 #endif // HAVE_LIBNICE_0_1_14
+
 GST_START_TEST (test_remb_params)
 {
   GArray *codecs_array;
@@ -2200,8 +2200,8 @@ GST_START_TEST (test_remb_params)
   g_free (offerer_sess_id);
   g_free (answerer_sess_id);
 }
-
 GST_END_TEST
+
 GST_START_TEST (test_session_creation)
 {
   gchar *sess_id;
@@ -2222,8 +2222,9 @@ GST_START_TEST (test_session_creation)
 
   g_object_unref (webrtcendpoint);
 }
+GST_END_TEST
 
-GST_END_TEST typedef struct _CandidateRangeData
+typedef struct _CandidateRangeData
 {
   guint min_port;
   guint max_port;
@@ -2289,8 +2290,9 @@ GST_START_TEST (test_port_range)
   g_object_unref (offerer);
   g_free (offerer_sess_id);
 }
+GST_END_TEST
 
-GST_END_TEST static void
+static void
 not_enough_ports_on_ice_candidate (GstElement * self, gchar * sess_id,
     KmsIceCandidate * candidate, gpointer offerer_num_pt)
 {
@@ -2400,8 +2402,9 @@ GST_START_TEST (test_not_enough_ports)
   g_free (offerer_sess_id);
   g_free (second_offerer_sess_id);
 }
+GST_END_TEST
 
-GST_END_TEST static void
+static void
 on_ice_candidate_check_mid (GstElement * self, gchar * sess_id,
     KmsIceCandidate * candidate, const gchar * expected_mid)
 {
@@ -2492,7 +2495,6 @@ GST_START_TEST (process_mid_no_bundle_offer)
   g_object_unref (webrtcendpoint);
   g_free (sess_id);
 }
-
 GST_END_TEST
 /**
  * On ICE Candidate event handler for testing ICE candidate IP.

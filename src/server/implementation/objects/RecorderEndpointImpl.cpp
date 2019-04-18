@@ -88,6 +88,11 @@ RecorderEndpointImpl::RecorderEndpointImpl (const boost::property_tree::ptree
     GST_INFO ("Set MP4 profile");
     break;
 
+  case MediaProfileSpecType::MKV:
+    g_object_set ( G_OBJECT (element), "profile", KMS_RECORDING_PROFILE_MKV, NULL);
+    GST_INFO ("Set MKV profile");
+    break;
+
   case MediaProfileSpecType::WEBM_VIDEO_ONLY:
     g_object_set ( G_OBJECT (element), "profile",
                    KMS_RECORDING_PROFILE_WEBM_VIDEO_ONLY, NULL);
@@ -98,6 +103,18 @@ RecorderEndpointImpl::RecorderEndpointImpl (const boost::property_tree::ptree
     g_object_set ( G_OBJECT (element), "profile",
                    KMS_RECORDING_PROFILE_WEBM_AUDIO_ONLY, NULL);
     GST_INFO ("Set WEBM AUDIO ONLY profile");
+    break;
+
+  case MediaProfileSpecType::MKV_VIDEO_ONLY:
+    g_object_set ( G_OBJECT (element), "profile",
+                   KMS_RECORDING_PROFILE_MKV_VIDEO_ONLY, NULL);
+    GST_INFO ("Set MKV VIDEO ONLY profile");
+    break;
+
+  case MediaProfileSpecType::MKV_AUDIO_ONLY:
+    g_object_set ( G_OBJECT (element), "profile",
+                   KMS_RECORDING_PROFILE_MKV_AUDIO_ONLY, NULL);
+    GST_INFO ("Set MKV AUDIO ONLY profile");
     break;
 
   case MediaProfileSpecType::MP4_VIDEO_ONLY:
@@ -249,7 +266,7 @@ void
 RecorderEndpointImpl::collectEndpointStats (std::map
     <std::string, std::shared_ptr<Stats>>
     &statsReport, std::string id, const GstStructure *stats,
-    double timestamp)
+    double timestamp, int64_t timestampMillis)
 {
   std::shared_ptr<Stats> endpointStats;
   GstStructure *e2e_stats;
@@ -265,7 +282,7 @@ RecorderEndpointImpl::collectEndpointStats (std::map
 
   endpointStats = std::make_shared <EndpointStats> (id,
                   std::make_shared <StatsType> (StatsType::endpoint), timestamp,
-                  0.0, 0.0, inputStats, 0.0, 0.0, e2eStats);
+                  timestampMillis, 0.0, 0.0, inputStats, 0.0, 0.0, e2eStats);
 
   setDeprecatedProperties (std::dynamic_pointer_cast <EndpointStats>
                            (endpointStats) );
@@ -276,17 +293,18 @@ RecorderEndpointImpl::collectEndpointStats (std::map
 void
 RecorderEndpointImpl::fillStatsReport (std::map
                                        <std::string, std::shared_ptr<Stats>>
-                                       &report, const GstStructure *stats, double timestamp)
+                                       &report, const GstStructure *stats,
+                                       double timestamp, int64_t timestampMillis)
 {
   const GstStructure *e_stats;
 
   e_stats = kms_utils_get_structure_by_name (stats, KMS_MEDIA_ELEMENT_FIELD);
 
   if (e_stats != nullptr) {
-    collectEndpointStats (report, getId (), e_stats, timestamp);
+    collectEndpointStats (report, getId (), e_stats, timestamp, timestampMillis);
   }
 
-  UriEndpointImpl::fillStatsReport (report, stats, timestamp);
+  UriEndpointImpl::fillStatsReport (report, stats, timestamp, timestampMillis);
 }
 
 MediaObjectImpl *

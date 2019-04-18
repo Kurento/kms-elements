@@ -86,7 +86,7 @@ remove_not_supported_codecs_from_array (GstElement *element, GArray *codecs)
 
     for (auto &supported_codec : supported_codecs) {
 
-      if (boost::istarts_with (codec_name, supported_codec) ) {
+      if (boost::istarts_with(codec_name, supported_codec)) {
         supported = TRUE;
         break;
       }
@@ -126,39 +126,37 @@ check_support_for_h264 ()
     return;
   }
 
-  supported_codecs.emplace_back ("H264");
+  supported_codecs.emplace_back("H264");
   gst_object_unref (plugin);
 }
 
 void
 WebRtcEndpointImpl::generateDefaultCertificates ()
 {
-  std::string pemUri;
-  std::string pemUriRSA;
-  std::string pemUriECDSA;
-
   defaultCertificateECDSA = "";
   defaultCertificateRSA = "";
 
-  try {
-    pemUriRSA = getConfigValue <std::string, WebRtcEndpoint> ("pemCertificateRSA");
+  std::string pemUriRSA;
+  if (getConfigValue <std::string, WebRtcEndpoint> (&pemUriRSA,
+      "pemCertificateRSA")) {
     defaultCertificateRSA = getCerficateFromFile (pemUriRSA);
-  } catch (boost::property_tree::ptree_error &e) {
-    try {
-      pemUri = getConfigValue <std::string, WebRtcEndpoint> ("pemCertificate");
+  } else {
+    std::string pemUri;
+    if (getConfigValue <std::string, WebRtcEndpoint> (&pemUri,
+        "pemCertificate")) {
       GST_WARNING ("pemCertificate is deprecated. Please use pemCertificateRSA instead");
       defaultCertificateRSA = getCerficateFromFile (pemUri);
-    } catch (boost::property_tree::ptree_error &e) {
+    } else {
       GST_INFO ("Unable to load the RSA certificate from file. Using the default certificate.");
       defaultCertificateRSA = CertificateManager::generateRSACertificate ();
     }
   }
 
-  try {
-    pemUriECDSA = getConfigValue
-                  <std::string, WebRtcEndpoint> ("pemCertificateECDSA");
+  std::string pemUriECDSA;
+  if (getConfigValue <std::string, WebRtcEndpoint> (&pemUriECDSA,
+      "pemCertificateECDSA")) {
     defaultCertificateECDSA = getCerficateFromFile (pemUriECDSA);
-  } catch (boost::property_tree::ptree_error &e) {
+  } else {
     GST_INFO ("Unable to load the ECDSA certificate from file. Using the default certificate.");
     defaultCertificateECDSA = CertificateManager::generateECDSACertificate ();
   }
@@ -169,12 +167,9 @@ void WebRtcEndpointImpl::checkUri (std::string &uri)
   //Check if uri is an absolute or relative path.
   if (! boost::starts_with (uri, "/") ) {
     std::string path;
-
-    try {
-      path = getConfigValue <std::string, WebRtcEndpoint> (CONFIG_PATH);
-    } catch (boost::property_tree::ptree_error &e) {
+    if (!getConfigValue <std::string, WebRtcEndpoint> (&path, CONFIG_PATH)) {
       GST_DEBUG ("WebRtcEndpoint config file doesn't contain a default path");
-      path = getConfigValue <std::string> (CONFIG_PATH, DEFAULT_PATH);
+      getConfigValue <std::string> (&path, CONFIG_PATH, DEFAULT_PATH);
     }
 
     uri = path + "/" + uri;
@@ -290,11 +285,11 @@ void WebRtcEndpointImpl::newSelectedPairFull (gchar *sessId,
   std::map<std::string, std::shared_ptr <IceCandidatePair>>::iterator it;
 
   GST_DEBUG_OBJECT (element,
-                    "New candidate pair selected, local: '%s', remote: '%s'"
-                    ", stream_id: '%s', component_id: %d",
-                    kms_ice_candidate_get_candidate (localCandidate),
-                    kms_ice_candidate_get_candidate (remoteCandidate),
-                    streamId, componentId);
+      "New candidate pair selected, local: '%s', remote: '%s'"
+      ", stream_id: '%s', component_id: %d",
+      kms_ice_candidate_get_candidate (localCandidate),
+      kms_ice_candidate_get_candidate (remoteCandidate),
+      streamId, componentId);
 
   candidatePair = std::make_shared< IceCandidatePair > (streamId,
                   componentId,
@@ -436,10 +431,6 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
                        std::dynamic_pointer_cast<MediaObjectImpl>
                        (mediaPipeline), FACTORY_NAME)
 {
-  uint stunPort;
-  std::string stunAddress;
-  std::string turnURL;
-  std::string externalIPs;
 
   std::call_once (check_openh264, check_support_for_h264);
   std::call_once (certificates_flag,
@@ -460,25 +451,19 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
   remove_not_supported_codecs (element);
 
   //set properties
-  try {
-    stunPort = getConfigValue <uint, WebRtcEndpoint> ("stunServerPort");
-  } catch (std::exception &) {
+  uint stunPort;
+  if (!getConfigValue <uint, WebRtcEndpoint> (&stunPort, "stunServerPort",
+      DEFAULT_STUN_PORT)) {
     GST_INFO ("STUN server Port not found in config;"
               " using default value: %d", DEFAULT_STUN_PORT);
-    stunPort = DEFAULT_STUN_PORT;
-  }
-
-  if (stunPort != 0) {
-    try {
-      stunAddress = getConfigValue
-                    <std::string, WebRtcEndpoint> ("stunServerAddress");
-    } catch (boost::property_tree::ptree_error &) {
+  } else {
+    std::string stunAddress;
+    if (!getConfigValue <std::string, WebRtcEndpoint> (&stunAddress,
+        "stunServerAddress")) {
       GST_INFO ("STUN server IP address not found in config;"
                 " NAT traversal requires either STUN or TURN server");
-    }
-
-    if (!stunAddress.empty() ) {
-      GST_INFO ("Using STUN reflexive server IP: %s", stunAddress.c_str() );
+    } else {
+      GST_INFO ("Using STUN reflexive server IP: %s", stunAddress.c_str());
       GST_INFO ("Using STUN reflexive server Port: %d", stunPort);
 
       g_object_set (G_OBJECT (element), "stun-server-port", stunPort, NULL);
@@ -486,28 +471,26 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
     }
   }
 
-  try {
-    turnURL = getConfigValue <std::string, WebRtcEndpoint> ("turnURL");
-
+  std::string turnURL;
+  if (getConfigValue <std::string, WebRtcEndpoint> (&turnURL, "turnURL")) {
     std::string safeURL = "<user:password>";
-    size_t separatorPos = turnURL.find_last_of ('@');
-
+    size_t separatorPos = turnURL.find_last_of('@');
     if (separatorPos == std::string::npos) {
-      safeURL.append ("@").append (turnURL);
+      safeURL.append("@").append(turnURL);
     } else {
-      safeURL.append (turnURL.substr (separatorPos) );
+      safeURL.append(turnURL.substr(separatorPos));
     }
-
-    GST_INFO ("Using TURN relay server: %s", safeURL.c_str() );
+    GST_INFO ("Using TURN relay server: %s", safeURL.c_str());
 
     g_object_set (G_OBJECT (element), "turn-url", turnURL.c_str(), NULL);
-  } catch (boost::property_tree::ptree_error &) {
+  } else {
     GST_INFO ("TURN server IP address not found in config;"
               " NAT traversal requires either STUN or TURN server");
   }
 
+    std::string externalIPs;
   try {
-    externalIPs = getConfigValue <std::string, WebRtcEndpoint> ("externalIPs");
+    externalIPs = getConfigValue <std::string, WebRtcEndpoint> (&externalIPs, "externalIPs");
     GST_INFO ("Describe external IPs: %s", externalIPs.c_str() );
   } catch (boost::property_tree::ptree_error &) {
     GST_INFO ("External IP address not found in config;"
@@ -684,8 +667,8 @@ WebRtcEndpointImpl::addIceCandidate (std::shared_ptr<IceCandidate> candidate)
   std::string cand_str = candidate->getCandidate();
   std::string mid_str = candidate->getSdpMid ();
   guint8 sdp_m_line_index = candidate->getSdpMLineIndex ();
-  KmsIceCandidate *cand = kms_ice_candidate_new (
-                            cand_str.c_str(), mid_str.c_str(), sdp_m_line_index, nullptr);
+  KmsIceCandidate *cand = kms_ice_candidate_new(
+      cand_str.c_str(), mid_str.c_str(), sdp_m_line_index, nullptr);
 
   if (cand) {
     g_signal_emit_by_name (element, "add-ice-candidate", this->sessId.c_str (),
@@ -854,7 +837,7 @@ createtRTCDataChannelStats (const GstStructure *stats)
 
   std::shared_ptr<RTCDataChannelStats> rtcDataStats =
     std::make_shared <RTCDataChannelStats> (id,
-        std::make_shared <StatsType> (StatsType::datachannel), 0.0, label,
+        std::make_shared <StatsType> (StatsType::datachannel), 0.0, 0, label,
         protocol, channelid, getRTCDataChannelState (state), messages_sent,
         bytes_sent, message_recv, bytes_recv);
 
@@ -877,7 +860,7 @@ createtRTCPeerConnectionStats (const GstStructure *stats)
 
   std::shared_ptr<RTCPeerConnectionStats> peerConnStats =
     std::make_shared <RTCPeerConnectionStats> (id,
-        std::make_shared <StatsType> (StatsType::session), 0.0, opened, closed);
+        std::make_shared <StatsType> (StatsType::session), 0.0, 0, opened, closed);
   g_free (id);
 
   return peerConnStats;
@@ -885,7 +868,8 @@ createtRTCPeerConnectionStats (const GstStructure *stats)
 
 static void
 collectRTCDataChannelStats (std::map <std::string, std::shared_ptr<Stats>>
-                            &statsReport, double timestamp, const GstStructure *stats)
+                            &statsReport, double timestamp,
+                            int64_t timestampMillis, const GstStructure *stats)
 {
   gint i, n;
 
@@ -916,29 +900,34 @@ collectRTCDataChannelStats (std::map <std::string, std::shared_ptr<Stats>>
 
     rtcDataStats = createtRTCDataChannelStats (gst_value_get_structure (value) );
     rtcDataStats->setTimestamp (timestamp);
+    rtcDataStats->setTimestampMillis (timestampMillis);
     statsReport[rtcDataStats->getId ()] = rtcDataStats;
   }
 
   std::shared_ptr<RTCPeerConnectionStats> peerConnStats =
     createtRTCPeerConnectionStats (stats);
   peerConnStats->setTimestamp (timestamp);
+  peerConnStats->setTimestampMillis (timestampMillis);
   statsReport[peerConnStats->getId ()] = peerConnStats;
 }
 
 void
 WebRtcEndpointImpl::fillStatsReport (std::map
                                      <std::string, std::shared_ptr<Stats>>
-                                     &report, const GstStructure *stats, double timestamp)
+                                     &report, const GstStructure *stats,
+                                     double timestamp, int64_t timestampMillis)
 {
   const GstStructure *data_stats = nullptr;
 
-  BaseRtpEndpointImpl::fillStatsReport (report, stats, timestamp);
+  BaseRtpEndpointImpl::fillStatsReport (report, stats, timestamp,
+      timestampMillis);
 
   data_stats = kms_utils_get_structure_by_name (stats,
                KMS_DATA_SESSION_STATISTICS_FIELD);
 
   if (data_stats != nullptr) {
-    return collectRTCDataChannelStats (report, timestamp, data_stats);
+    return collectRTCDataChannelStats (report, timestamp, timestampMillis,
+        data_stats);
   }
 }
 

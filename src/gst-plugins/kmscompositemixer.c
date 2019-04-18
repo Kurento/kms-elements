@@ -442,8 +442,8 @@ link_to_videomixer (GstPad * pad, GstPadProbeInfo * info,
   data->latency_probe_id = 0;
 
   sink_pad_template =
-      gst_element_class_get_pad_template (GST_ELEMENT_GET_CLASS (mixer->priv->
-          videomixer), "sink_%u");
+      gst_element_class_get_pad_template (GST_ELEMENT_GET_CLASS (mixer->
+          priv->videomixer), "sink_%u");
 
   if (G_UNLIKELY (sink_pad_template == NULL)) {
     GST_ERROR_OBJECT (mixer, "Error taking a new pad from videomixer");
@@ -532,12 +532,14 @@ kms_composite_mixer_port_data_create (KmsCompositeMixer * mixer, gint id)
   data->removing = FALSE;
   data->eos_managed = FALSE;
 
+
   // Link AUDIO input
 
   padname = g_strdup_printf (AUDIO_SINK_PAD, data->id);
   kms_base_hub_link_audio_sink (KMS_BASE_HUB (mixer), data->id,
       mixer->priv->audiomixer, padname, FALSE);
   g_free (padname);
+
 
   // Link VIDEO input
 
@@ -578,15 +580,18 @@ kms_composite_mixer_port_data_create (KmsCompositeMixer * mixer, gint id)
       "sink");
   g_object_unref (tee_src);
 
+
   data->link_probe_id = gst_pad_add_probe (data->tee_sink_pad,
       GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM | GST_PAD_PROBE_TYPE_BLOCK,
       (GstPadProbeCallback) link_to_videomixer,
       KMS_COMPOSITE_MIXER_REF (data), (GDestroyNotify) kms_ref_struct_unref);
 
+
   // Link DATA input
 
   kms_base_hub_link_data_sink (KMS_BASE_HUB (mixer), data->id,
       mixer->priv->datamixer_sink, "sink_%u", TRUE);
+
 
   return data;
 }

@@ -45,7 +45,7 @@ G_DEFINE_QUARK (APPSINK_KEY, appsink);
 G_DEFINE_QUARK (PTS_KEY, pts);
 
 #define NETWORK_CACHE_DEFAULT 2000
-#define PORT_RANGE_DEFAULT    "0-0"
+#define PORT_RANGE_DEFAULT "0-0"
 #define IS_PREROLL TRUE
 
 GST_DEBUG_CATEGORY_STATIC (kms_player_endpoint_debug_category);
@@ -802,14 +802,14 @@ appsink_probe_query_appsrc_caps (GstPad * pad, GstPadProbeInfo * info,
 }
 
 static GstPadProbeReturn
-appsink_event_query_probe (GstPad * pad, GstPadProbeInfo * info,
-    gpointer element)
+appsink_event_query_probe (GstPad * pad, GstPadProbeInfo * info, gpointer element)
 {
   GstPadProbeType type = GST_PAD_PROBE_INFO_TYPE (info);
 
   if (type & GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM) {
     return appsink_probe_set_appsrc_caps (pad, info, element);
-  } else if (type & GST_PAD_PROBE_TYPE_QUERY_DOWNSTREAM) {
+  }
+  else if (type & GST_PAD_PROBE_TYPE_QUERY_DOWNSTREAM) {
     return appsink_probe_query_appsrc_caps (pad, info, element);
   }
 
@@ -1293,7 +1293,9 @@ kms_player_endpoint_uridecodebin_element_added (GstBin * bin,
               (gst_element_get_factory (element))), RTSPSRC) == 0) {
     g_object_set (G_OBJECT (element),
         "latency", self->priv->network_cache,
-        "drop-on-latency", TRUE, "port-range", self->priv->port_range, NULL);
+        "drop-on-latency", TRUE,
+        "port-range", self->priv->port_range,
+        NULL);
   }
 }
 
@@ -1337,7 +1339,6 @@ process_bus_message (GstBus * bus, GstMessage * msg, KmsPlayerEndpoint * self)
 
   gchar *dot_name = g_strdup_printf ("%s_bus_%d", GST_OBJECT_NAME (self),
       err_code);
-
   GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS (GST_BIN (parent), GST_DEBUG_GRAPH_SHOW_ALL,
       dot_name);
   g_free (dot_name);
@@ -1361,7 +1362,8 @@ kms_player_endpoint_init (KmsPlayerEndpoint * self)
 
   self->priv->loop = kms_loop_new ();
   self->priv->pipeline = gst_pipeline_new ("internalpipeline");
-  self->priv->uridecodebin = gst_element_factory_make ("uridecodebin", NULL);
+  self->priv->uridecodebin =
+      gst_element_factory_make ("uridecodebin", NULL);
   self->priv->network_cache = NETWORK_CACHE_DEFAULT;
   self->priv->port_range = g_strdup (PORT_RANGE_DEFAULT);
 

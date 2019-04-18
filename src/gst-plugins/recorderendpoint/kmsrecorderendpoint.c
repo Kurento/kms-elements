@@ -18,8 +18,7 @@
 #include "config.h"
 #endif
 
-#define _GNU_SOURCE // Enable GNU Extensions: 'ALLPERMS' is not POSIX
-#include <sys/stat.h>
+#include <sys/stat.h>  // 'ACCESSPERMS' is not POSIX, requires GNU extensions in GCC
 
 #include <string.h>
 #include <gst/gst.h>
@@ -734,7 +733,7 @@ kms_recorder_endpoint_create_parent_directories (KmsRecorderEndpoint * self)
     gchar *dir = g_path_get_dirname (file);
 
     // Try to create directory
-    if (g_mkdir_with_parents (dir, ALLPERMS) != 0) {
+    if (g_mkdir_with_parents (dir, ACCESSPERMS) != 0) {
       GST_WARNING_OBJECT (self, "Directory %s could not be created", dir);
     }
 
@@ -968,6 +967,8 @@ set_appsink_caps (GstElement * appsink, const GstCaps * caps,
   }
 
   switch (profile) {
+    case KMS_RECORDING_PROFILE_MKV:
+    case KMS_RECORDING_PROFILE_MKV_VIDEO_ONLY:
     case KMS_RECORDING_PROFILE_WEBM:
     case KMS_RECORDING_PROFILE_WEBM_VIDEO_ONLY:
       /* Allow renegotiation of width and height because webmmux supports it */
