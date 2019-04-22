@@ -489,16 +489,12 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
   }
 
     std::string externalIPs;
-  try {
-    externalIPs = getConfigValue <std::string, WebRtcEndpoint> (&externalIPs, "externalIPs");
-    GST_INFO ("Describe external IPs: %s", externalIPs.c_str() );
-  } catch (boost::property_tree::ptree_error &) {
-    GST_INFO ("External IP address not found in config;"
-              "Discover IP's automatically");
-  }
-
-  if (!externalIPs.empty() ) {
-    g_object_set (G_OBJECT (element), "external-ips", externalIPs.c_str(), NULL);
+  if (getConfigValue <std::string, WebRtcEndpoint> (&externalIPs, "externalIPs")) {
+      GST_INFO ("Describe external IPs: %s", externalIPs.c_str());
+      g_object_set (G_OBJECT (element), "external-ips", externalIPs.c_str(), NULL);
+  }else{
+      GST_INFO ("External IP address not found in config;"
+               "Discover IP's automatically");
   }
 
   switch (certificateKeyType->getValue () ) {
