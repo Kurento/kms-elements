@@ -1388,7 +1388,6 @@ kms_player_endpoint_init (KmsPlayerEndpoint * self)
 
   gst_bin_add (GST_BIN (self->priv->pipeline), self->priv->uridecodebin);
 
-  bus = gst_pipeline_get_bus (GST_PIPELINE (self->priv->pipeline));
   gst_bus_set_sync_handler (bus, bus_sync_signal_handler, self, NULL);
   g_object_unref (bus);
 }
