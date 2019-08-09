@@ -92,6 +92,7 @@ struct _KmsPlayerEndpointPrivate
   GstClockTime base_time_preroll;
 
   KmsPlayerStats stats;
+  guint bus_watch_id;
 };
 
 enum
@@ -346,6 +347,7 @@ kms_player_endpoint_dispose (GObject * object)
 
     bus = gst_pipeline_get_bus (GST_PIPELINE (self->priv->pipeline));
     gst_bus_set_sync_handler (bus, NULL, NULL, NULL);
+    g_source_remove(self->priv->bus_watch_id);
     g_object_unref (bus);
 
     gst_element_set_state (self->priv->pipeline, GST_STATE_NULL);
@@ -1382,7 +1384,7 @@ kms_player_endpoint_init (KmsPlayerEndpoint * self)
 
   /* Eat all async messages such as buffering messages */
   bus = gst_pipeline_get_bus (GST_PIPELINE (self->priv->pipeline));
-  gst_bus_add_watch (bus, (GstBusFunc) process_bus_message, self);
+  self->priv->bus_watch_id = gst_bus_add_watch (bus, (GstBusFunc) process_bus_message, self);
 
   g_object_set (self->priv->uridecodebin, "download", TRUE, NULL);
 
