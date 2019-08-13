@@ -669,6 +669,22 @@ appsrc_query_probe (GstPad * pad, GstPadProbeInfo * info, gpointer element)
   return GST_PAD_PROBE_OK;
 }
 
+static void
+kms_player_end_point_remove_appsrc(KmsPlayerEndpoint * self,
+  GstElement * agnosticbin, GstElement *appsrc) {
+  if (!appsrc) 
+    return;
+
+  // unlink appsrc first
+  gst_element_unlink (appsrc, agnosticbin);
+  // if () {
+  //   GST_ERROR ("Cannot unlink elements: %s from %s", GST_ELEMENT_NAME (appsrc),
+  //       GST_ELEMENT_NAME (agnosticbin));
+  // }
+
+  kms_utils_bin_remove(GST_BIN (self), appsrc);
+}
+
 static GstElement *
 kms_player_end_point_add_appsrc (KmsPlayerEndpoint * self,
     GstElement * agnosticbin, GstElement * appsink)
@@ -901,11 +917,15 @@ kms_player_endpoint_uridecodebin_pad_removed (GstElement * element,
   appsrc = g_object_steal_qdata (G_OBJECT (pad), appsrc_quark ());
 
   if (appsink != NULL) {
+    GstPad *sinkpad = gst_element_get_static_pad (appsink, "sink");
+    gst_pad_unlink(pad, sinkpad);
     kms_utils_bin_remove (GST_BIN (self->priv->pipeline), appsink);
   }
 
   if (appsrc != NULL) {
-    kms_utils_bin_remove (GST_BIN (self), appsrc);
+    GstElement* agnosticbin = kms_player_end_point_get_agnostic_for_pad (self, pad);
+    kms_player_end_point_remove_appsrc(self, agnosticbin, appsrc);
+    // kms_utils_bin_remove (GST_BIN (self), appsrc);
   }
 }
 
