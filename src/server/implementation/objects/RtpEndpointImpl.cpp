@@ -150,6 +150,8 @@ RtpEndpointImpl::onKeySoftLimit (gchar *media)
 
   try {
     OnKeySoftLimit event (shared_from_this(), OnKeySoftLimit::getName(), type);
+
+    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
     signalOnKeySoftLimit (event);
   } catch (std::bad_weak_ptr &e) {
   }

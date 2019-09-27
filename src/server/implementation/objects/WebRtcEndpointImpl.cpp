@@ -189,6 +189,7 @@ void WebRtcEndpointImpl::onIceCandidate (gchar *sessId,
     IceCandidateFound newEvent (shared_from_this(), IceCandidateFound::getName(),
                                 cand);
 
+    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
     signalOnIceCandidate (event);
     signalIceCandidateFound (newEvent);
   } catch (std::bad_weak_ptr &e) {
@@ -201,6 +202,7 @@ void WebRtcEndpointImpl::onIceGatheringDone (gchar *sessId)
     OnIceGatheringDone event (shared_from_this(), OnIceGatheringDone::getName() );
     IceGatheringDone newEvent (shared_from_this(), IceGatheringDone::getName() );
 
+    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
     signalOnIceGatheringDone (event);
     signalIceGatheringDone (newEvent);
   } catch (std::bad_weak_ptr &e) {
@@ -269,6 +271,7 @@ void WebRtcEndpointImpl::onIceComponentStateChanged (gchar *sessId,
     iceConnectionState.insert (std::pair
                                <std::string, std::shared_ptr <IceConnection>> (key, connectionState) );
 
+    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
     signalOnIceComponentStateChanged (event);
     signalIceComponentStateChange (newEvent);
   } catch (std::bad_weak_ptr &e) {
@@ -310,6 +313,7 @@ void WebRtcEndpointImpl::newSelectedPairFull (gchar *sessId,
     NewCandidatePairSelected event (shared_from_this(),
                                     NewCandidatePairSelected::getName(), candidatePair);
 
+    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
     signalNewCandidatePairSelected (event);
   } catch (std::bad_weak_ptr &e) {
   }
@@ -323,6 +327,8 @@ WebRtcEndpointImpl::onDataChannelOpened (gchar *sessId, guint stream_id)
                                stream_id);
     DataChannelOpen newEvent (shared_from_this(), DataChannelOpen::getName(),
                               stream_id);
+
+    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
     signalOnDataChannelOpened (event);
     signalDataChannelOpen (newEvent);
   } catch (std::bad_weak_ptr &e) {
@@ -337,6 +343,8 @@ WebRtcEndpointImpl::onDataChannelClosed (gchar *sessId, guint stream_id)
                                stream_id);
     DataChannelClose newEvent (shared_from_this(), DataChannelClose::getName(),
                                stream_id);
+
+    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
     signalOnDataChannelClosed (event);
     signalDataChannelClose (newEvent);
   } catch (std::bad_weak_ptr &e) {

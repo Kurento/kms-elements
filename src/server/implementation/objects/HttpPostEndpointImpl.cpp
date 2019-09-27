@@ -39,6 +39,7 @@ void HttpPostEndpointImpl::eosLambda ()
   try {
     EndOfStream event (shared_from_this(), EndOfStream::getName() );
 
+    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
     signalEndOfStream (event);
   } catch (std::bad_weak_ptr &e) {
   }
