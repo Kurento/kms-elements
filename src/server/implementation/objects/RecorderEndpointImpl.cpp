@@ -168,8 +168,7 @@ RecorderEndpointImpl::onStateChanged (gint newState)
     GST_DEBUG_OBJECT (element, "State changed to Stopped");
     Stopped event (shared_from_this(), Stopped::getName() );
 
-    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
-    signalStopped (event);
+    sigcSignalEmit(signalStopped, event);
     break;
   }
 
@@ -177,8 +176,7 @@ RecorderEndpointImpl::onStateChanged (gint newState)
     GST_DEBUG_OBJECT (element, "State changed to Recording");
     Recording event (shared_from_this(), Recording::getName() );
 
-    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
-    signalRecording (event);
+    sigcSignalEmit(signalRecording, event);
     break;
   }
 
@@ -186,8 +184,7 @@ RecorderEndpointImpl::onStateChanged (gint newState)
     GST_DEBUG_OBJECT (element, "State changed to Paused");
     Paused event (shared_from_this(), Paused::getName() );
 
-    std::unique_lock<std::recursive_mutex> sigcLock (sigcMutex);
-    signalPaused (event);
+    sigcSignalEmit(signalPaused, event);
     break;
   }
   }
