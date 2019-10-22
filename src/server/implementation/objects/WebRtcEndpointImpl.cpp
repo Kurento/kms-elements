@@ -57,9 +57,11 @@ namespace kurento
 
 static const uint DEFAULT_STUN_PORT = 3478;
 
-std::once_flag check_openh264, certificates_flag;
-std::string defaultCertificateRSA, defaultCertificateECDSA;
-std::vector<std::string> supported_codecs = { "VP8", "opus", "PCMU" };
+static std::once_flag check_openh264, certificates_flag;
+static std::string defaultCertificateRSA, defaultCertificateECDSA;
+
+// "H264" gets added at runtime by check_support_for_h264()
+static std::vector<std::string> supported_codecs = { "VP8", "opus", "PCMU" };
 
 static void
 remove_not_supported_codecs_from_array (GstElement *element, GArray *codecs)
@@ -179,31 +181,52 @@ void WebRtcEndpointImpl::checkUri (std::string &uri)
 void WebRtcEndpointImpl::onIceCandidate (gchar *sessId,
     KmsIceCandidate *candidate)
 {
-  try {
-    std::string cand_str (kms_ice_candidate_get_candidate (candidate) );
-    std::string mid_str (kms_ice_candidate_get_sdp_mid (candidate) );
-    int sdp_m_line_index = kms_ice_candidate_get_sdp_m_line_index (candidate);
-    std::shared_ptr <IceCandidate> cand ( new  IceCandidate
-                                          (cand_str, mid_str, sdp_m_line_index) );
-    OnIceCandidate event (shared_from_this(), OnIceCandidate::getName(), cand);
-    IceCandidateFound newEvent (shared_from_this(), IceCandidateFound::getName(),
-                                cand);
+  std::string cand_str (kms_ice_candidate_get_candidate (candidate) );
+  std::string mid_str (kms_ice_candidate_get_sdp_mid (candidate) );
+  int sdp_m_line_index = kms_ice_candidate_get_sdp_m_line_index (candidate);
+  std::shared_ptr <IceCandidate> cand ( new  IceCandidate
+                                        (cand_str, mid_str, sdp_m_line_index) );
 
-    signalOnIceCandidate (event);
-    signalIceCandidateFound (newEvent);
-  } catch (std::bad_weak_ptr &e) {
+  try {
+    OnIceCandidate event (shared_from_this (), OnIceCandidate::getName (),
+        cand);
+    sigcSignalEmit(signalOnIceCandidate, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s", OnIceCandidate::getName ().c_str (),
+        e.what ());
+  }
+
+  try {
+    IceCandidateFound event (shared_from_this(),
+        IceCandidateFound::getName (), cand);
+    sigcSignalEmit(signalIceCandidateFound, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s", IceCandidateFound::getName ().c_str (),
+        e.what ());
   }
 }
 
 void WebRtcEndpointImpl::onIceGatheringDone (gchar *sessId)
 {
   try {
-    OnIceGatheringDone event (shared_from_this(), OnIceGatheringDone::getName() );
-    IceGatheringDone newEvent (shared_from_this(), IceGatheringDone::getName() );
+    OnIceGatheringDone event (shared_from_this (),
+        OnIceGatheringDone::getName ());
+    sigcSignalEmit(signalOnIceGatheringDone, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s", OnIceGatheringDone::getName ().c_str (),
+        e.what ());
+  }
 
-    signalOnIceGatheringDone (event);
-    signalIceGatheringDone (newEvent);
-  } catch (std::bad_weak_ptr &e) {
+  try {
+    IceGatheringDone event (shared_from_this (), IceGatheringDone::getName ());
+    sigcSignalEmit(signalIceGatheringDone, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s", IceGatheringDone::getName ().c_str (),
+        e.what ());
   }
 }
 
@@ -211,67 +234,75 @@ void WebRtcEndpointImpl::onIceComponentStateChanged (gchar *sessId,
     const gchar *streamId,
     guint componentId, guint state)
 {
+  IceComponentState::type type;
+  std::shared_ptr<IceConnection> connectionState;
+  std::map < std::string, std::shared_ptr<IceConnection>>::iterator it;
+  std::string key;
+
+  switch (state) {
+  case ICE_STATE_DISCONNECTED:
+    type = IceComponentState::DISCONNECTED;
+    break;
+
+  case ICE_STATE_GATHERING:
+    type = IceComponentState::GATHERING;
+    break;
+
+  case ICE_STATE_CONNECTING:
+    type = IceComponentState::CONNECTING;
+    break;
+
+  case ICE_STATE_CONNECTED:
+    type = IceComponentState::CONNECTED;
+    break;
+
+  case ICE_STATE_READY:
+    type = IceComponentState::READY;
+    break;
+
+  case ICE_STATE_FAILED:
+    type = IceComponentState::FAILED;
+    break;
+
+  default:
+    type = IceComponentState::FAILED;
+    break;
+  }
+
+  IceComponentState *componentState_event = new IceComponentState (type);
+  IceComponentState *newComponentState_event = new IceComponentState (type);
+  IceComponentState *componentState_property = new IceComponentState (type);
+
+  connectionState = std::make_shared< IceConnection> (streamId, componentId,
+                    std::shared_ptr<IceComponentState> (componentState_property) );
+  key = std::string (streamId) + '_' + std::to_string (componentId);
+
+  std::unique_lock<std::mutex> mutex (mut);
+  it = iceConnectionState.find (key);
+  iceConnectionState[key] = connectionState;
+  iceConnectionState.insert (std::pair
+                             <std::string, std::shared_ptr <IceConnection>> (key, connectionState) );
+
   try {
-    IceComponentState::type type;
-    std::shared_ptr<IceConnection> connectionState;
-    std::map < std::string, std::shared_ptr<IceConnection>>::iterator it;
-    std::string key;
+    OnIceComponentStateChanged event (shared_from_this (),
+        OnIceComponentStateChanged::getName (), atoi (streamId), componentId,
+        std::shared_ptr<IceComponentState> (componentState_event));
+    sigcSignalEmit(signalOnIceComponentStateChanged, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s",
+        OnIceComponentStateChanged::getName ().c_str (), e.what ());
+  }
 
-    switch (state) {
-    case ICE_STATE_DISCONNECTED:
-      type = IceComponentState::DISCONNECTED;
-      break;
-
-    case ICE_STATE_GATHERING:
-      type = IceComponentState::GATHERING;
-      break;
-
-    case ICE_STATE_CONNECTING:
-      type = IceComponentState::CONNECTING;
-      break;
-
-    case ICE_STATE_CONNECTED:
-      type = IceComponentState::CONNECTED;
-      break;
-
-    case ICE_STATE_READY:
-      type = IceComponentState::READY;
-      break;
-
-    case ICE_STATE_FAILED:
-      type = IceComponentState::FAILED;
-      break;
-
-    default:
-      type = IceComponentState::FAILED;
-      break;
-    }
-
-    IceComponentState *componentState_event = new IceComponentState (type);
-    IceComponentState *newComponentState_event = new IceComponentState (type);
-    IceComponentState *componentState_property = new IceComponentState (type);
-    OnIceComponentStateChanged event (shared_from_this(),
-                                      OnIceComponentStateChanged::getName(),
-                                      atoi (streamId), componentId,
-                                      std::shared_ptr<IceComponentState> (componentState_event) );
-    IceComponentStateChange newEvent (shared_from_this(),
-                                      IceComponentStateChange::getName(),
-                                      atoi (streamId), componentId,
-                                      std::shared_ptr<IceComponentState> (newComponentState_event) );
-
-    connectionState = std::make_shared< IceConnection> (streamId, componentId,
-                      std::shared_ptr<IceComponentState> (componentState_property) );
-    key = std::string (streamId) + '_' + std::to_string (componentId);
-
-    std::unique_lock<std::mutex> mutex (mut);
-    it = iceConnectionState.find (key);
-    iceConnectionState[key] = connectionState;
-    iceConnectionState.insert (std::pair
-                               <std::string, std::shared_ptr <IceConnection>> (key, connectionState) );
-
-    signalOnIceComponentStateChanged (event);
-    signalIceComponentStateChange (newEvent);
-  } catch (std::bad_weak_ptr &e) {
+  try {
+    IceComponentStateChange event (shared_from_this (),
+        IceComponentStateChange::getName (), atoi (streamId), componentId,
+        std::shared_ptr<IceComponentState> (newComponentState_event));
+    sigcSignalEmit(signalIceComponentStateChange, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s",
+        IceComponentStateChange::getName ().c_str (), e.what ());
   }
 }
 
@@ -307,11 +338,13 @@ void WebRtcEndpointImpl::newSelectedPairFull (gchar *sessId,
                          <std::string, std::shared_ptr <IceCandidatePair>> (key, candidatePair) );
 
   try {
-    NewCandidatePairSelected event (shared_from_this(),
-                                    NewCandidatePairSelected::getName(), candidatePair);
-
-    signalNewCandidatePairSelected (event);
-  } catch (std::bad_weak_ptr &e) {
+    NewCandidatePairSelected event (shared_from_this (),
+        NewCandidatePairSelected::getName (), candidatePair);
+    sigcSignalEmit(signalNewCandidatePairSelected, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s",
+        NewCandidatePairSelected::getName ().c_str (), e.what ());
   }
 }
 
@@ -319,13 +352,23 @@ void
 WebRtcEndpointImpl::onDataChannelOpened (gchar *sessId, guint stream_id)
 {
   try {
-    OnDataChannelOpened event (shared_from_this(), OnDataChannelOpened::getName(),
-                               stream_id);
-    DataChannelOpen newEvent (shared_from_this(), DataChannelOpen::getName(),
-                              stream_id);
-    signalOnDataChannelOpened (event);
-    signalDataChannelOpen (newEvent);
-  } catch (std::bad_weak_ptr &e) {
+    OnDataChannelOpened event (shared_from_this (),
+        OnDataChannelOpened::getName (), stream_id);
+    sigcSignalEmit(signalOnDataChannelOpened, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s", OnDataChannelOpened::getName ().c_str (),
+        e.what ());
+  }
+
+  try {
+    DataChannelOpen event (shared_from_this (), DataChannelOpen::getName (),
+        stream_id);
+    sigcSignalEmit(signalDataChannelOpen, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s", DataChannelOpen::getName ().c_str (),
+        e.what ());
   }
 }
 
@@ -333,13 +376,23 @@ void
 WebRtcEndpointImpl::onDataChannelClosed (gchar *sessId, guint stream_id)
 {
   try {
-    OnDataChannelClosed event (shared_from_this(), OnDataChannelClosed::getName(),
-                               stream_id);
-    DataChannelClose newEvent (shared_from_this(), DataChannelClose::getName(),
-                               stream_id);
-    signalOnDataChannelClosed (event);
-    signalDataChannelClose (newEvent);
-  } catch (std::bad_weak_ptr &e) {
+    OnDataChannelClosed event (shared_from_this (),
+        OnDataChannelClosed::getName (), stream_id);
+    sigcSignalEmit(signalOnDataChannelClosed, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s", OnDataChannelClosed::getName ().c_str (),
+        e.what ());
+  }
+
+  try {
+    DataChannelClose event (shared_from_this (), DataChannelClose::getName (),
+        stream_id);
+    sigcSignalEmit(signalDataChannelClose, event);
+  } catch (const std::bad_weak_ptr &e) {
+    // shared_from_this()
+    GST_ERROR ("BUG creating %s: %s", DataChannelClose::getName ().c_str (),
+        e.what ());
   }
 }
 
@@ -431,7 +484,6 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
                        std::dynamic_pointer_cast<MediaObjectImpl>
                        (mediaPipeline), FACTORY_NAME)
 {
-
   std::call_once (check_openh264, check_support_for_h264);
   std::call_once (certificates_flag,
                   std::bind (&WebRtcEndpointImpl::generateDefaultCertificates, this) );
@@ -451,7 +503,7 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
   remove_not_supported_codecs (element);
 
   //set properties
-  uint stunPort;
+  uint stunPort = 0;
   if (!getConfigValue <uint, WebRtcEndpoint> (&stunPort, "stunServerPort",
       DEFAULT_STUN_PORT)) {
     GST_INFO ("STUN server Port not found in config;"
@@ -488,11 +540,11 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
               " NAT traversal requires either STUN or TURN server");
   }
 
-    std::string externalIPs;
+  std::string externalIPs;
   if (getConfigValue <std::string, WebRtcEndpoint> (&externalIPs, "externalIPs")) {
       GST_INFO ("Describe external IPs: %s", externalIPs.c_str());
       g_object_set (G_OBJECT (element), "external-ips", externalIPs.c_str(), NULL);
-  }else{
+  } else {
       GST_INFO ("External IP address not found in config;"
                "Discover IP's automatically");
   }
@@ -663,6 +715,13 @@ WebRtcEndpointImpl::addIceCandidate (std::shared_ptr<IceCandidate> candidate)
   std::string cand_str = candidate->getCandidate();
   std::string mid_str = candidate->getSdpMid ();
   guint8 sdp_m_line_index = candidate->getSdpMLineIndex ();
+
+  if (cand_str.empty()) {
+    // This is an end-of-candidates notification, part of Trickle ICE.
+    // Just ignore it.
+    return;
+  }
+
   KmsIceCandidate *cand = kms_ice_candidate_new(
       cand_str.c_str(), mid_str.c_str(), sdp_m_line_index, nullptr);
 
@@ -670,10 +729,10 @@ WebRtcEndpointImpl::addIceCandidate (std::shared_ptr<IceCandidate> candidate)
     g_signal_emit_by_name (element, "add-ice-candidate", this->sessId.c_str (),
                            cand, &ret);
     g_object_unref (cand);
-  }
 
-  if (!ret) {
-    throw KurentoException (ICE_ADD_CANDIDATE_ERROR, "Error adding candidate");
+    if (!ret) {
+      throw KurentoException (ICE_ADD_CANDIDATE_ERROR, "Error adding candidate");
+    }
   }
 }
 
