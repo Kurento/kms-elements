@@ -1066,7 +1066,7 @@ kms_player_endpoint_class_init (KmsPlayerEndpointClass * klass)
   // the `uridecodebin`
   GstRegistry* registry = gst_registry_get();
   GstPluginFeature* vaapidecodebin = gst_registry_lookup_feature(registry, "vaapidecodebin");
-  if(vaapidecodebin == NULL) {
+  if(vaapidecodebin != NULL) {
     gst_plugin_feature_set_rank(vaapidecodebin, GST_RANK_NONE);
     gst_object_unref(vaapidecodebin);
   }
