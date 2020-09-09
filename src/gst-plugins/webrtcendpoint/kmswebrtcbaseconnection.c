@@ -254,6 +254,17 @@ kms_webrtc_base_connection_set_network_ifs_info (KmsWebRtcBaseConnection *
 }
 
 void
+kms_webrtc_base_connection_set_agent_ice_tcp (KmsWebRtcBaseConnection *
+    self, gboolean niceAgentIceTcp)
+{
+  if (KMS_IS_ICE_NICE_AGENT (self->agent)) {
+    KmsIceNiceAgent *nice_agent = KMS_ICE_NICE_AGENT (self->agent);
+    g_object_set (kms_ice_nice_agent_get_agent (nice_agent),
+        "ice-tcp", niceAgentIceTcp, NULL);
+  }
+}
+
+void
 kms_webrtc_base_connection_set_stun_server_info (KmsWebRtcBaseConnection * self,
     const gchar * ip, guint port)
 {

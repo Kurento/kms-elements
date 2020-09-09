@@ -305,6 +305,11 @@
           "type": "String"
         },
         {
+          "name": "niceAgentIceTcp",
+          "doc": "Enable libnice agent's ice-tcp option",
+          "type": "boolean"
+        },
+        {
           "name": "stunServerAddress",
           "doc": "STUN server IP address.
 <p>The ICE process uses STUN to punch holes through NAT firewalls.</p>

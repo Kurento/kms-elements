@@ -54,9 +54,11 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 
 #define PARAM_EXTERNAL_ADDRESS "externalAddress"
 #define PARAM_NETWORK_INTERFACES "networkInterfaces"
+#define PARAM_NICEAGENT_ICE_TCP "niceAgentIceTcp"
 
 #define PROP_EXTERNAL_ADDRESS "external-address"
 #define PROP_NETWORK_INTERFACES "network-interfaces"
+#define PROP_NICEAGENT_ICE_TCP "niceagent-ice-tcp"
 
 namespace kurento
 {
@@ -532,6 +534,17 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
                " you can set one or default to ICE automatic discovery");
   }
 
+  gboolean niceAgentIceTcp;
+  if (getConfigValue <gboolean, WebRtcEndpoint> (&niceAgentIceTcp,
+      PARAM_NICEAGENT_ICE_TCP)) {
+    GST_INFO ("NiceAgent ice-tcp set to %d", niceAgentIceTcp);
+    g_object_set (G_OBJECT (element), PROP_NICEAGENT_ICE_TCP,
+        niceAgentIceTcp, NULL);
+  } else {
+    GST_DEBUG ("NiceAgent ice-tcp option not found in config;"
+               " you can set one or default to ice-tcp 1 - TRUE");
+  }
+
   uint stunPort = 0;
 
   if (!getConfigValue <uint, WebRtcEndpoint> (&stunPort, "stunServerPort",
@@ -670,6 +683,23 @@ WebRtcEndpointImpl::setNetworkInterfaces (const std::string &networkInterfaces)
   GST_INFO ("Set network interfaces: %s", networkInterfaces.c_str());
   g_object_set (G_OBJECT (element), PROP_NETWORK_INTERFACES,
       networkInterfaces.c_str(), NULL);
+}
+
+bool
+WebRtcEndpointImpl::getNiceAgentIceTcp ()
+{
+  bool ret;
+
+  g_object_get ( G_OBJECT (element), "niceagent-ice-tcp", &ret, NULL);
+
+  return ret;
+}
+
+void
+WebRtcEndpointImpl::setNiceAgentIceTcp (bool niceAgentIceTcp)
+{
+  g_object_set ( G_OBJECT (element), "niceagent-ice-tcp",
+                 niceAgentIceTcp, NULL);
 }
 
 std::string

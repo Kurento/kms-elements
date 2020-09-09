@@ -72,6 +72,7 @@ struct _KmsWebrtcSession
   gchar *pem_certificate;
   gchar *network_interfaces;
   gchar *external_address;
+  gboolean niceagent_ice_tcp;
 
   guint16 min_port;
   guint16 max_port;

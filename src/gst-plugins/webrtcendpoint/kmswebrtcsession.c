@@ -56,6 +56,7 @@ G_DEFINE_TYPE (KmsWebrtcSession, kms_webrtc_session, KMS_TYPE_BASE_RTP_SESSION);
 #define DEFAULT_PEM_CERTIFICATE NULL
 #define DEFAULT_NETWORK_INTERFACES NULL
 #define DEFAULT_EXTERNAL_ADDRESS NULL
+#define DEFAULT_NICEAGENT_ICE_TCP TRUE
 
 #define IP_VERSION_6 6
 
@@ -90,6 +91,7 @@ enum
   PROP_PEM_CERTIFICATE,
   PROP_NETWORK_INTERFACES,
   PROP_EXTERNAL_ADDRESS,
+  PROP_NICEAGENT_ICE_TCP,
   N_PROPERTIES
 };
 
@@ -793,6 +795,14 @@ kms_webrtc_session_set_network_ifs_info (KmsWebrtcSession * self,
 }
 
 static void
+kms_webrtc_session_set_niceagent_ice_tcp (KmsWebrtcSession * self,
+    KmsWebRtcBaseConnection * conn)
+{
+  kms_webrtc_base_connection_set_agent_ice_tcp (conn, self->niceagent_ice_tcp);
+}
+
+
+static void
 kms_webrtc_session_set_stun_server_info (KmsWebrtcSession * self,
     KmsWebRtcBaseConnection * conn)
 {
@@ -831,6 +841,7 @@ kms_webrtc_session_gather_candidates (KmsWebrtcSession * self)
     KmsWebRtcBaseConnection *conn = KMS_WEBRTC_BASE_CONNECTION (v);
 
     kms_webrtc_session_set_network_ifs_info (self, conn);
+    kms_webrtc_session_set_niceagent_ice_tcp (self, conn);
     kms_webrtc_session_set_stun_server_info (self, conn);
     kms_webrtc_session_set_relay_info (self, conn);
 
@@ -1733,6 +1744,9 @@ kms_webrtc_session_set_property (GObject * object, guint prop_id,
       g_free (self->external_address);
       self->external_address = g_value_dup_string (value);
       break;
+    case PROP_NICEAGENT_ICE_TCP:
+      self->niceagent_ice_tcp = g_value_get_boolean (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -1770,6 +1784,9 @@ kms_webrtc_session_get_property (GObject * object, guint prop_id,
       break;
     case PROP_EXTERNAL_ADDRESS:
       g_value_set_string (value, self->external_address);
+      break;
+    case PROP_NICEAGENT_ICE_TCP:
+      g_value_set_boolean (value, self->niceagent_ice_tcp);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1907,6 +1924,7 @@ kms_webrtc_session_init (KmsWebrtcSession * self)
   self->pem_certificate = DEFAULT_PEM_CERTIFICATE;
   self->network_interfaces = DEFAULT_NETWORK_INTERFACES;
   self->external_address = DEFAULT_EXTERNAL_ADDRESS;
+  self->niceagent_ice_tcp = DEFAULT_NICEAGENT_ICE_TCP;
   self->gather_started = FALSE;
 
   self->data_channels = g_hash_table_new_full (g_direct_hash,
@@ -2011,6 +2029,12 @@ kms_webrtc_session_class_init (KmsWebrtcSessionClass * klass)
           "externalAddress",
           "External (public) IP address of the media server",
           DEFAULT_EXTERNAL_ADDRESS, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_NICEAGENT_ICE_TCP,
+      g_param_spec_boolean ("niceagent-ice-tcp",
+          "niceAgentIceTcp",
+          "Enable NiceAgent's ICE-TCP gathering",
+          DEFAULT_NICEAGENT_ICE_TCP, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class, PROP_DATA_CHANNEL_SUPPORTED,
       g_param_spec_boolean ("data-channel-supported",

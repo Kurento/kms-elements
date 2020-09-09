@@ -56,6 +56,7 @@ G_DEFINE_TYPE (KmsWebrtcEndpoint, kms_webrtc_endpoint,
 #define DEFAULT_PEM_CERTIFICATE NULL
 #define DEFAULT_NETWORK_INTERFACES NULL
 #define DEFAULT_EXTERNAL_ADDRESS NULL
+#define DEFAULT_NICEAGENT_ICE_TCP TRUE
 
 enum
 {
@@ -66,6 +67,7 @@ enum
   PROP_PEM_CERTIFICATE,
   PROP_NETWORK_INTERFACES,
   PROP_EXTERNAL_ADDRESS,
+  PROP_NICEAGENT_ICE_TCP,
   N_PROPERTIES
 };
 
@@ -99,6 +101,7 @@ struct _KmsWebrtcEndpointPrivate
   gchar *pem_certificate;
   gchar *network_interfaces;
   gchar *external_address;
+  gboolean niceagent_ice_tcp;
 };
 
 /* Internal session management begin */
@@ -329,13 +332,16 @@ kms_webrtc_endpoint_create_session_internal (KmsBaseSdpEndpoint * base_sdp,
       webrtc_sess, "network-interfaces", G_BINDING_DEFAULT);
   g_object_bind_property (self, "external-address",
       webrtc_sess, "external-address", G_BINDING_DEFAULT);
+  g_object_bind_property (self, "niceagent-ice-tcp",
+      webrtc_sess, "niceagent-ice-tcp", G_BINDING_DEFAULT);
 
   g_object_set (webrtc_sess, "stun-server", self->priv->stun_server_ip,
       "stun-server-port", self->priv->stun_server_port,
       "turn-url", self->priv->turn_url,
       "pem-certificate", self->priv->pem_certificate,
       "network-interfaces", self->priv->network_interfaces,
-      "external-address", self->priv->external_address, NULL);
+      "external-address", self->priv->external_address,
+      "niceagent-ice-tcp", self->priv->niceagent_ice_tcp, NULL);
 
   g_signal_connect (webrtc_sess, "on-ice-candidate",
       G_CALLBACK (on_ice_candidate), self);
@@ -511,6 +517,9 @@ kms_webrtc_endpoint_set_property (GObject * object, guint prop_id,
       g_free (self->priv->external_address);
       self->priv->external_address = g_value_dup_string (value);
       break;
+    case PROP_NICEAGENT_ICE_TCP:
+      self->priv->niceagent_ice_tcp = g_value_get_boolean (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -545,6 +554,9 @@ kms_webrtc_endpoint_get_property (GObject * object, guint prop_id,
       break;
     case PROP_EXTERNAL_ADDRESS:
       g_value_set_string (value, self->priv->external_address);
+      break;
+    case PROP_NICEAGENT_ICE_TCP:
+      g_value_set_boolean (value, self->priv->niceagent_ice_tcp);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -771,6 +783,12 @@ kms_webrtc_endpoint_class_init (KmsWebrtcEndpointClass * klass)
           "External (public) IP address of the media server",
           DEFAULT_EXTERNAL_ADDRESS, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class, PROP_NICEAGENT_ICE_TCP,
+      g_param_spec_boolean ("niceagent-ice-tcp",
+        "niceAgentIceTcp",
+        "Enable NiceAgent's ICE-TCP gathering",
+        DEFAULT_NICEAGENT_ICE_TCP, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   /**
   * KmsWebrtcEndpoint::on-ice-candidate:
   * @self: the object which received the signal
@@ -905,6 +923,7 @@ kms_webrtc_endpoint_init (KmsWebrtcEndpoint * self)
   self->priv->pem_certificate = DEFAULT_PEM_CERTIFICATE;
   self->priv->network_interfaces = DEFAULT_NETWORK_INTERFACES;
   self->priv->external_address = DEFAULT_EXTERNAL_ADDRESS;
+  self->priv->niceagent_ice_tcp = DEFAULT_NICEAGENT_ICE_TCP;
 
   self->priv->loop = kms_loop_new ();
   g_object_get (self->priv->loop, "context", &self->priv->context, NULL);
