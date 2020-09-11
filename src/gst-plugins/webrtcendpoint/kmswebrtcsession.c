@@ -56,6 +56,8 @@ G_DEFINE_TYPE (KmsWebrtcSession, kms_webrtc_session, KMS_TYPE_BASE_RTP_SESSION);
 #define DEFAULT_PEM_CERTIFICATE NULL
 #define DEFAULT_NETWORK_INTERFACES NULL
 #define DEFAULT_EXTERNAL_ADDRESS NULL
+#define DEFAULT_EXTERNAL_IPV4 NULL
+#define DEFAULT_EXTERNAL_IPV6 NULL
 #define DEFAULT_NICEAGENT_ICE_TCP TRUE
 
 #define IP_VERSION_6 6
@@ -91,6 +93,8 @@ enum
   PROP_PEM_CERTIFICATE,
   PROP_NETWORK_INTERFACES,
   PROP_EXTERNAL_ADDRESS,
+  PROP_EXTERNAL_IPV4,
+  PROP_EXTERNAL_IPV6,
   PROP_NICEAGENT_ICE_TCP,
   N_PROPERTIES
 };
@@ -585,11 +589,22 @@ kms_webrtc_session_new_candidate (KmsIceBaseAgent * agent,
       kms_ice_candidate_get_stream_id (candidate),
       kms_ice_candidate_get_component (candidate));
 
+  gboolean is_candidate_ipv6 = kms_ice_candidate_get_ip_version (candidate) == IP_VERSION_6;
+
   if (self->external_address != NULL) {
     kms_ice_candidate_set_address (candidate, self->external_address);
-
     GST_DEBUG_OBJECT (self,
         "[IceCandidateFound] Mangled local: '%s'",
+        kms_ice_candidate_get_candidate (candidate));
+  } else if (self->external_ipv4 != NULL && is_candidate_ipv6 == FALSE) {
+    kms_ice_candidate_set_address (candidate, self->external_ipv4);
+    GST_DEBUG_OBJECT (self,
+        "[IceCandidateFound] Mangled local candidate with IPv4: '%s'",
+        kms_ice_candidate_get_candidate (candidate));
+  } else if (self->external_ipv6 != NULL && is_candidate_ipv6 == TRUE) {
+    kms_ice_candidate_set_address (candidate, self->external_ipv6);
+    GST_DEBUG_OBJECT (self,
+        "[IceCandidateFound] Mangled local candidate with IPv6: '%s'",
         kms_ice_candidate_get_candidate (candidate));
   }
 
@@ -1744,6 +1759,14 @@ kms_webrtc_session_set_property (GObject * object, guint prop_id,
       g_free (self->external_address);
       self->external_address = g_value_dup_string (value);
       break;
+    case PROP_EXTERNAL_IPV4:
+      g_free (self->external_ipv4);
+      self->external_ipv4 = g_value_dup_string (value);
+      break;
+    case PROP_EXTERNAL_IPV6:
+      g_free (self->external_ipv6);
+      self->external_ipv6 = g_value_dup_string (value);
+      break;
     case PROP_NICEAGENT_ICE_TCP:
       self->niceagent_ice_tcp = g_value_get_boolean (value);
       break;
@@ -1785,6 +1808,12 @@ kms_webrtc_session_get_property (GObject * object, guint prop_id,
     case PROP_EXTERNAL_ADDRESS:
       g_value_set_string (value, self->external_address);
       break;
+    case PROP_EXTERNAL_IPV4:
+      g_value_set_string (value, self->external_ipv4);
+      break;
+    case PROP_EXTERNAL_IPV6:
+      g_value_set_string (value, self->external_ipv6);
+      break;
     case PROP_NICEAGENT_ICE_TCP:
       g_value_set_boolean (value, self->niceagent_ice_tcp);
       break;
@@ -1815,6 +1844,8 @@ kms_webrtc_session_finalize (GObject * object)
   g_free (self->pem_certificate);
   g_free (self->network_interfaces);
   g_free (self->external_address);
+  g_free (self->external_ipv4);
+  g_free (self->external_ipv6);
 
   if (self->destroy_data != NULL && self->cb_data != NULL) {
     self->destroy_data (self->cb_data);
@@ -1924,6 +1955,8 @@ kms_webrtc_session_init (KmsWebrtcSession * self)
   self->pem_certificate = DEFAULT_PEM_CERTIFICATE;
   self->network_interfaces = DEFAULT_NETWORK_INTERFACES;
   self->external_address = DEFAULT_EXTERNAL_ADDRESS;
+  self->external_ipv4= DEFAULT_EXTERNAL_IPV4;
+  self->external_ipv6 = DEFAULT_EXTERNAL_IPV6;
   self->niceagent_ice_tcp = DEFAULT_NICEAGENT_ICE_TCP;
   self->gather_started = FALSE;
 
@@ -2029,6 +2062,18 @@ kms_webrtc_session_class_init (KmsWebrtcSessionClass * klass)
           "externalAddress",
           "External (public) IP address of the media server",
           DEFAULT_EXTERNAL_ADDRESS, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_EXTERNAL_IPV4,
+      g_param_spec_string ("external-ipv4",
+          "externalIPv4",
+          "External (public) IPv4 address of the media server",
+          DEFAULT_EXTERNAL_IPV4, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_EXTERNAL_IPV6,
+      g_param_spec_string ("external-ipv6",
+          "externalIPv6",
+          "External (public) IPv6 address of the media server",
+          DEFAULT_EXTERNAL_IPV6, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class, PROP_NICEAGENT_ICE_TCP,
       g_param_spec_boolean ("niceagent-ice-tcp",

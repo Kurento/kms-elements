@@ -56,6 +56,8 @@ G_DEFINE_TYPE (KmsWebrtcEndpoint, kms_webrtc_endpoint,
 #define DEFAULT_PEM_CERTIFICATE NULL
 #define DEFAULT_NETWORK_INTERFACES NULL
 #define DEFAULT_EXTERNAL_ADDRESS NULL
+#define DEFAULT_EXTERNAL_IPV4 NULL
+#define DEFAULT_EXTERNAL_IPV6 NULL
 #define DEFAULT_NICEAGENT_ICE_TCP TRUE
 
 enum
@@ -67,6 +69,8 @@ enum
   PROP_PEM_CERTIFICATE,
   PROP_NETWORK_INTERFACES,
   PROP_EXTERNAL_ADDRESS,
+  PROP_EXTERNAL_IPV4,
+  PROP_EXTERNAL_IPV6,
   PROP_NICEAGENT_ICE_TCP,
   N_PROPERTIES
 };
@@ -101,6 +105,8 @@ struct _KmsWebrtcEndpointPrivate
   gchar *pem_certificate;
   gchar *network_interfaces;
   gchar *external_address;
+  gchar *external_ipv4;
+  gchar *external_ipv6;
   gboolean niceagent_ice_tcp;
 };
 
@@ -332,6 +338,10 @@ kms_webrtc_endpoint_create_session_internal (KmsBaseSdpEndpoint * base_sdp,
       webrtc_sess, "network-interfaces", G_BINDING_DEFAULT);
   g_object_bind_property (self, "external-address",
       webrtc_sess, "external-address", G_BINDING_DEFAULT);
+  g_object_bind_property (self, "external-ipv4",
+      webrtc_sess, "external-ipv4", G_BINDING_DEFAULT);
+  g_object_bind_property (self, "external-ipv6",
+      webrtc_sess, "external-ipv6", G_BINDING_DEFAULT);
   g_object_bind_property (self, "niceagent-ice-tcp",
       webrtc_sess, "niceagent-ice-tcp", G_BINDING_DEFAULT);
 
@@ -341,6 +351,8 @@ kms_webrtc_endpoint_create_session_internal (KmsBaseSdpEndpoint * base_sdp,
       "pem-certificate", self->priv->pem_certificate,
       "network-interfaces", self->priv->network_interfaces,
       "external-address", self->priv->external_address,
+      "external-ipv4", self->priv->external_ipv4,
+      "external-ipv6", self->priv->external_ipv6,
       "niceagent-ice-tcp", self->priv->niceagent_ice_tcp, NULL);
 
   g_signal_connect (webrtc_sess, "on-ice-candidate",
@@ -517,6 +529,14 @@ kms_webrtc_endpoint_set_property (GObject * object, guint prop_id,
       g_free (self->priv->external_address);
       self->priv->external_address = g_value_dup_string (value);
       break;
+    case PROP_EXTERNAL_IPV4:
+      g_free (self->priv->external_ipv4);
+      self->priv->external_ipv4 = g_value_dup_string (value);
+      break;
+    case PROP_EXTERNAL_IPV6:
+      g_free (self->priv->external_ipv6);
+      self->priv->external_ipv6 = g_value_dup_string (value);
+      break;
     case PROP_NICEAGENT_ICE_TCP:
       self->priv->niceagent_ice_tcp = g_value_get_boolean (value);
       break;
@@ -554,6 +574,12 @@ kms_webrtc_endpoint_get_property (GObject * object, guint prop_id,
       break;
     case PROP_EXTERNAL_ADDRESS:
       g_value_set_string (value, self->priv->external_address);
+      break;
+    case PROP_EXTERNAL_IPV4:
+      g_value_set_string (value, self->priv->external_ipv4);
+      break;
+    case PROP_EXTERNAL_IPV6:
+      g_value_set_string (value, self->priv->external_ipv6);
       break;
     case PROP_NICEAGENT_ICE_TCP:
       g_value_set_boolean (value, self->priv->niceagent_ice_tcp);
@@ -595,6 +621,8 @@ kms_webrtc_endpoint_finalize (GObject * object)
   g_free (self->priv->pem_certificate);
   g_free (self->priv->network_interfaces);
   g_free (self->priv->external_address);
+  g_free (self->priv->external_ipv4);
+  g_free (self->priv->external_ipv6);
 
   g_main_context_unref (self->priv->context);
 
@@ -783,6 +811,18 @@ kms_webrtc_endpoint_class_init (KmsWebrtcEndpointClass * klass)
           "External (public) IP address of the media server",
           DEFAULT_EXTERNAL_ADDRESS, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class, PROP_EXTERNAL_IPV4,
+      g_param_spec_string ("external-ipv4",
+          "externalIPv4",
+          "External (public) IPv4 address of the media server",
+          DEFAULT_EXTERNAL_IPV4, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_EXTERNAL_IPV6,
+      g_param_spec_string ("external-ipv6",
+          "externalIPv6",
+          "External (public) IPv6 address of the media server",
+          DEFAULT_EXTERNAL_IPV6, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (gobject_class, PROP_NICEAGENT_ICE_TCP,
       g_param_spec_boolean ("niceagent-ice-tcp",
         "niceAgentIceTcp",
@@ -923,6 +963,8 @@ kms_webrtc_endpoint_init (KmsWebrtcEndpoint * self)
   self->priv->pem_certificate = DEFAULT_PEM_CERTIFICATE;
   self->priv->network_interfaces = DEFAULT_NETWORK_INTERFACES;
   self->priv->external_address = DEFAULT_EXTERNAL_ADDRESS;
+  self->priv->external_ipv4 = DEFAULT_EXTERNAL_IPV4;
+  self->priv->external_ipv6 = DEFAULT_EXTERNAL_IPV6;
   self->priv->niceagent_ice_tcp = DEFAULT_NICEAGENT_ICE_TCP;
 
   self->priv->loop = kms_loop_new ();
