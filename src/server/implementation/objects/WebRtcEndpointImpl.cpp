@@ -56,11 +56,13 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define PARAM_EXTERNAL_IPV4 "externalIPv4"
 #define PARAM_EXTERNAL_IPV6 "externalIPv6"
 #define PARAM_NETWORK_INTERFACES "networkInterfaces"
+#define PARAM_IP_IGNORE_LIST "ipIgnoreList"
 
 #define PROP_EXTERNAL_ADDRESS "external-address"
 #define PROP_EXTERNAL_IPV4 "external-ipv4"
 #define PROP_EXTERNAL_IPV6 "external-ipv6"
 #define PROP_NETWORK_INTERFACES "network-interfaces"
+#define PROP_IP_IGNORE_LIST "ip-ignore-list"
 
 namespace kurento
 {
@@ -558,6 +560,16 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
                " you can set one or default to ICE automatic discovery");
   }
 
+  std::string ipIgnoreList;
+  if (getConfigValue <std::string, WebRtcEndpoint> (&ipIgnoreList,
+      PARAM_IP_IGNORE_LIST)) {
+    GST_INFO ("IP ignore list: %s", ipIgnoreList.c_str());
+    g_object_set (G_OBJECT (element), PROP_IP_IGNORE_LIST,
+        ipIgnoreList.c_str(), NULL);
+  } else {
+    GST_DEBUG ("No IP ignore list found in config");
+  }
+
   uint stunPort = 0;
 
   if (!getConfigValue <uint, WebRtcEndpoint> (&stunPort, "stunServerPort",
@@ -745,6 +757,31 @@ WebRtcEndpointImpl::setNetworkInterfaces (const std::string &networkInterfaces)
   g_object_set (G_OBJECT (element), PROP_NETWORK_INTERFACES,
       networkInterfaces.c_str(), NULL);
 }
+
+std::string
+WebRtcEndpointImpl::getIpIgnoreList()
+{
+  std::string ipIgnoreList;
+  gchar *ret;
+
+  g_object_get (G_OBJECT (element), PROP_IP_IGNORE_LIST, &ret, NULL);
+
+  if (ret != nullptr) {
+    ipIgnoreList = std::string (ret);
+    g_free (ret);
+  }
+
+  return ipIgnoreList;
+}
+
+void
+WebRtcEndpointImpl::setIpIgnoreList (const std::string &ipIgnoreList)
+{
+  GST_INFO ("Set IP ignore list: %s", ipIgnoreList.c_str());
+  g_object_set (G_OBJECT (element), PROP_IP_IGNORE_LIST,
+      ipIgnoreList.c_str(), NULL);
+}
+
 
 std::string
 WebRtcEndpointImpl::getStunServerAddress ()

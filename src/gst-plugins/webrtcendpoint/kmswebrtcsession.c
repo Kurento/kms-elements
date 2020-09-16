@@ -55,6 +55,7 @@ G_DEFINE_TYPE (KmsWebrtcSession, kms_webrtc_session, KMS_TYPE_BASE_RTP_SESSION);
 #define DEFAULT_DATA_CHANNELS_SUPPORTED FALSE
 #define DEFAULT_PEM_CERTIFICATE NULL
 #define DEFAULT_NETWORK_INTERFACES NULL
+#define DEFAULT_IP_IGNORE_LIST NULL
 #define DEFAULT_EXTERNAL_ADDRESS NULL
 #define DEFAULT_EXTERNAL_IPV4 NULL
 #define DEFAULT_EXTERNAL_IPV6 NULL
@@ -91,6 +92,7 @@ enum
   PROP_DATA_CHANNEL_SUPPORTED,
   PROP_PEM_CERTIFICATE,
   PROP_NETWORK_INTERFACES,
+  PROP_IP_IGNORE_LIST,
   PROP_EXTERNAL_ADDRESS,
   PROP_EXTERNAL_IPV4,
   PROP_EXTERNAL_IPV6,
@@ -804,7 +806,7 @@ kms_webrtc_session_set_network_ifs_info (KmsWebrtcSession * self,
   }
 
   kms_webrtc_base_connection_set_network_ifs_info (conn,
-      self->network_interfaces);
+      self->network_interfaces, self->ip_ignore_list);
 }
 
 static void
@@ -1744,6 +1746,10 @@ kms_webrtc_session_set_property (GObject * object, guint prop_id,
       g_free (self->network_interfaces);
       self->network_interfaces = g_value_dup_string (value);
       break;
+    case PROP_IP_IGNORE_LIST:
+      g_free (self->ip_ignore_list);
+      self->ip_ignore_list = g_value_dup_string (value);
+      break;
     case PROP_EXTERNAL_ADDRESS:
       g_free (self->external_address);
       self->external_address = g_value_dup_string (value);
@@ -1791,6 +1797,9 @@ kms_webrtc_session_get_property (GObject * object, guint prop_id,
     case PROP_NETWORK_INTERFACES:
       g_value_set_string (value, self->network_interfaces);
       break;
+    case PROP_IP_IGNORE_LIST:
+      g_value_set_string (value, self->ip_ignore_list);
+      break;
     case PROP_EXTERNAL_ADDRESS:
       g_value_set_string (value, self->external_address);
       break;
@@ -1826,6 +1835,7 @@ kms_webrtc_session_finalize (GObject * object)
   g_free (self->turn_address);
   g_free (self->pem_certificate);
   g_free (self->network_interfaces);
+  g_free (self->ip_ignore_list);
   g_free (self->external_address);
   g_free (self->external_ipv4);
   g_free (self->external_ipv6);
@@ -1937,6 +1947,7 @@ kms_webrtc_session_init (KmsWebrtcSession * self)
   self->turn_url = DEFAULT_STUN_TURN_URL;
   self->pem_certificate = DEFAULT_PEM_CERTIFICATE;
   self->network_interfaces = DEFAULT_NETWORK_INTERFACES;
+  self->ip_ignore_list = DEFAULT_IP_IGNORE_LIST;
   self->external_address = DEFAULT_EXTERNAL_ADDRESS;
   self->external_ipv4= DEFAULT_EXTERNAL_IPV4;
   self->external_ipv6 = DEFAULT_EXTERNAL_IPV6;
@@ -2038,6 +2049,12 @@ kms_webrtc_session_class_init (KmsWebrtcSessionClass * klass)
           "networkInterfaces",
           "Local network interfaces used for ICE gathering",
           DEFAULT_NETWORK_INTERFACES, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_IP_IGNORE_LIST,
+      g_param_spec_string ("ip-ignore-list",
+          "ipIgnoreList",
+          "IPs to be ignored during libnice's gathering phase",
+          DEFAULT_IP_IGNORE_LIST, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class, PROP_EXTERNAL_ADDRESS,
       g_param_spec_string ("external-address",

@@ -58,6 +58,9 @@ public:
   std::string getNetworkInterfaces () override;
   void setNetworkInterfaces (const std::string &networkInterfaces) override;
 
+  std::string getIpIgnoreList () override;
+  void setIpIgnoreList (const std::string &ipIgnoreList) override;
+
   std::string getStunServerAddress () override;
   void setStunServerAddress (const std::string &stunServerAddress) override;
 

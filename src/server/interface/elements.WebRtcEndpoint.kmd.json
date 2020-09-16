@@ -305,6 +305,11 @@
           "type": "String"
         },
         {
+          "name": "ipIgnoreList",
+          "doc": "List of IP addresses to be ignored in the gathering phase when networkInterfaces is set",
+          "type": "String"
+        },
+        {
           "name": "stunServerAddress",
           "doc": "STUN server IP address.
 <p>The ICE process uses STUN to punch holes through NAT firewalls.</p>

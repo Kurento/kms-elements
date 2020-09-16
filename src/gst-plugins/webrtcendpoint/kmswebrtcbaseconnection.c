@@ -21,6 +21,10 @@
 
 #include <string.h> // strlen()
 
+// Network interfaces and IP fetching for NiceAgent
+#include <ifaddrs.h>
+#include <net/if.h>
+
 #define GST_CAT_DEFAULT kmswebrtcbaseconnection
 GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define GST_DEFAULT_NAME "kmswebrtcbaseconnection"
@@ -213,43 +217,140 @@ kms_webrtc_base_connection_split_comma (const gchar * str)
   return list;
 }
 
+gint
+kms_webrtc_base_connection_cmp_ifa (const gchar * n1, const gchar * n2) {
+  return strcmp(n1, n2);
+}
+
+gboolean
+kms_webrtc_base_connection_agent_is_network_interface_valid (struct ifaddrs * ifa) {
+  gboolean is_valid = FALSE;
+  int sa_family;
+
+  // No IP address assigned to interface, skip
+  if (ifa->ifa_addr == NULL) {
+    goto end;
+  }
+
+  // Interface is either down of not running
+  if (!(ifa->ifa_flags && IFF_UP) || !(ifa->ifa_flags && IFF_RUNNING)) {
+    goto end;
+  }
+
+  sa_family = ifa->ifa_addr->sa_family;
+
+  // Only traverse through interfaces which are from the AF_INET/AF_INET6 families
+  if (sa_family != AF_INET && sa_family != AF_INET6) {
+    goto end;
+  }
+
+  is_valid = TRUE;
+
+end:
+  return is_valid;
+};
+
+gboolean
+kms_webrtc_base_connection_agent_is_interface_ip_valid (const gchar * ip_address,
+    GSList * ip_ignore_list) {
+  gboolean is_valid = FALSE;
+
+  // Link local IPv4, ignore
+  if (!strncmp(ip_address, "169.254.", 8)) {
+    goto end;
+  }
+
+  // Link local IPv6, ignore
+  if (!strncmp(ip_address, "fe80:", 5)) {
+    goto end;
+  }
+
+  // Check if there's an IP ignore list defined and see if the IP address matches
+  // one of them
+  if (ip_ignore_list != NULL) {
+    if (g_slist_find_custom (ip_ignore_list, ip_address,
+        (GCompareFunc) kms_webrtc_base_connection_cmp_ifa)) {
+      goto end;
+    }
+  }
+
+  is_valid = TRUE;
+
+end:
+  return is_valid;
+};
+
 /**
  * Add new local IP address to NiceAgent instance.
  */
-static void
-kms_webrtc_base_connection_agent_add_net_addr (const gchar * net_name,
-    NiceAgent * agent)
+  static void
+kms_webrtc_base_connection_agent_add_net_ifs_addrs (NiceAgent * agent,
+    GSList * net_list, GSList * ip_ignore_list)
 {
-  NiceAddress *nice_address = nice_address_new ();
-  gchar *ip_address = nice_interfaces_get_ip_for_interface ((gchar *)net_name);
+  struct ifaddrs *ifaddr, *ifa;
+  gchar ip_address[INET6_ADDRSTRLEN];
+  GSList *it;
+  NiceAddress *nice_address;
 
-  nice_address_set_from_string (nice_address, ip_address);
-  nice_agent_add_local_address (agent, nice_address);
+  if (getifaddrs(&ifaddr) == -1) {
+    GST_ERROR ("Failed to fetch system network interfaces");
+    return;
+  }
 
-  GST_INFO_OBJECT (agent, "Added local address: %s", ip_address);
+  for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+    if (!kms_webrtc_base_connection_agent_is_network_interface_valid(ifa)) {
+      continue;
+    }
 
-  nice_address_free (nice_address);
-  g_free (ip_address);
+    // See if the network interface is in the configuration list
+    it = g_slist_find_custom (net_list, ifa->ifa_name,
+        (GCompareFunc) kms_webrtc_base_connection_cmp_ifa);
+
+    // Current interface is not present in config, skip.
+    if (it == NULL) {
+      continue;
+    }
+
+    if (ifa->ifa_addr->sa_family == AF_INET) {
+      struct sockaddr_in *in4 = (struct sockaddr_in*) ifa->ifa_addr;
+      inet_ntop(AF_INET, &in4->sin_addr, ip_address, sizeof (ip_address));
+    } else {
+      struct sockaddr_in6 *in6 = (struct sockaddr_in6*) ifa->ifa_addr;
+      inet_ntop(AF_INET6, &in6->sin6_addr, ip_address, sizeof (ip_address));
+    }
+
+    // Check if the IP in the ignore list or is link local
+    if (!kms_webrtc_base_connection_agent_is_interface_ip_valid(ip_address,
+          ip_ignore_list)) {
+      continue;
+    }
+
+    nice_address = nice_address_new ();
+    nice_address_set_from_string (nice_address, ip_address);
+    nice_agent_add_local_address (agent, nice_address);
+    nice_address_free (nice_address);
+
+    GST_DEBUG_OBJECT (agent, "Added interface %s's IP address: %s",
+        ifa->ifa_name, ip_address);
+  }
+
+  freeifaddrs(ifaddr);
 }
 
 void
 kms_webrtc_base_connection_set_network_ifs_info (KmsWebRtcBaseConnection *
-    self, const gchar * net_names)
+    self, const gchar * net_names, const gchar * ip_ignore_list)
 {
   if (KMS_IS_ICE_NICE_AGENT (self->agent)) {
     KmsIceNiceAgent *nice_agent = KMS_ICE_NICE_AGENT (self->agent);
     NiceAgent *agent = kms_ice_nice_agent_get_agent (nice_agent);
 
-    GSList *net_list = kms_webrtc_base_connection_split_comma (
-        net_names);
-
-    if (net_list != NULL) {
-      g_slist_foreach (net_list,
-          (GFunc) kms_webrtc_base_connection_agent_add_net_addr,
-          agent);
-    }
+    GSList *net_list = kms_webrtc_base_connection_split_comma (net_names);
+    GSList *ip_ignore_glist = kms_webrtc_base_connection_split_comma (ip_ignore_list);
+    kms_webrtc_base_connection_agent_add_net_ifs_addrs (agent, net_list, ip_ignore_glist);
 
     g_slist_free_full (net_list, g_free);
+    g_slist_free_full (ip_ignore_glist, g_free);
   }
 }
 
