@@ -34,6 +34,7 @@
 #define AUDIO_APPSRC "audio_appsrc"
 #define VIDEO_APPSRC "video_appsrc"
 #define RTSPSRC "rtspsrc"
+#define URISOURCEBIN "urisourcebin"
 
 #define APPSRC_KEY "appsrc-key"
 G_DEFINE_QUARK (APPSRC_KEY, appsrc);
@@ -1287,18 +1288,37 @@ kms_player_endpoint_uridecodebin_source_setup (GstElement * uridecodebin,
 }
 
 static void
-kms_player_endpoint_uridecodebin_element_added (GstBin * bin,
-    GstElement * element, gpointer data)
+kms_player_endpoint_urisourcebin_child_added (GstChildProxy * child_proxy, GObject * object, gchar * name, gpointer data)
 {
   KmsPlayerEndpoint *self = KMS_PLAYER_ENDPOINT (data);
 
-  if (g_strcmp0 (gst_plugin_feature_get_name (GST_PLUGIN_FEATURE
-              (gst_element_get_factory (element))), RTSPSRC) == 0) {
+  GstElement * element = GST_ELEMENT (object);
+  gchar *factory_name = gst_plugin_feature_get_name (GST_PLUGIN_FEATURE
+              (gst_element_get_factory (element)));
+
+  if (g_strcmp0 (factory_name, RTSPSRC) == 0) {
+    GST_DEBUG_OBJECT (self, "Configure rtspsrc");
     g_object_set (G_OBJECT (element),
         "latency", self->priv->network_cache,
         "drop-on-latency", TRUE,
         "port-range", self->priv->port_range,
         NULL);
+  }
+}
+
+static void
+kms_player_endpoint_uridecodebin3_child_added (GstChildProxy * child_proxy, GObject * object, gchar * name, gpointer data)
+{
+  KmsPlayerEndpoint *self = KMS_PLAYER_ENDPOINT (data);
+
+  GstElement * element = GST_ELEMENT (object);
+  gchar *factory_name = gst_plugin_feature_get_name (GST_PLUGIN_FEATURE
+              (gst_element_get_factory (element)));
+
+  if (g_strcmp0 (factory_name, URISOURCEBIN) == 0) {
+    GST_DEBUG_OBJECT (self, "Set child-added callback to urisourcebin");
+    g_signal_connect (element, "child-added",
+        G_CALLBACK (kms_player_endpoint_urisourcebin_child_added), self);
   }
 }
 
@@ -1366,7 +1386,7 @@ kms_player_endpoint_init (KmsPlayerEndpoint * self)
   self->priv->loop = kms_loop_new ();
   self->priv->pipeline = gst_pipeline_new ("internalpipeline");
   self->priv->uridecodebin =
-      gst_element_factory_make ("uridecodebin", NULL);
+      gst_element_factory_make ("uridecodebin3", NULL);
   self->priv->network_cache = NETWORK_CACHE_DEFAULT;
   self->priv->port_range = g_strdup (PORT_RANGE_DEFAULT);
 
@@ -1380,8 +1400,8 @@ kms_player_endpoint_init (KmsPlayerEndpoint * self)
       G_CALLBACK (kms_player_endpoint_uridecodebin_pad_removed), self);
   g_signal_connect (self->priv->uridecodebin, "source-setup",
       G_CALLBACK (kms_player_endpoint_uridecodebin_source_setup), self);
-  g_signal_connect (self->priv->uridecodebin, "element-added",
-      G_CALLBACK (kms_player_endpoint_uridecodebin_element_added), self);
+  g_signal_connect (self->priv->uridecodebin, "child-added",
+      G_CALLBACK (kms_player_endpoint_uridecodebin3_child_added), self);
 
   /* Eat all async messages such as buffering messages */
   bus = gst_pipeline_get_bus (GST_PIPELINE (self->priv->pipeline));
