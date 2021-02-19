@@ -56,13 +56,13 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define PARAM_EXTERNAL_IPV4 "externalIPv4"
 #define PARAM_EXTERNAL_IPV6 "externalIPv6"
 #define PARAM_NETWORK_INTERFACES "networkInterfaces"
-#define PARAM_NICEAGENT_ICE_TCP "niceAgentIceTcp"
+#define PARAM_ICE_TCP "iceTcp"
 
 #define PROP_EXTERNAL_ADDRESS "external-address"
 #define PROP_EXTERNAL_IPV4 "external-ipv4"
 #define PROP_EXTERNAL_IPV6 "external-ipv6"
 #define PROP_NETWORK_INTERFACES "network-interfaces"
-#define PROP_NICEAGENT_ICE_TCP "niceagent-ice-tcp"
+#define PROP_ICE_TCP "ice-tcp"
 
 namespace kurento
 {
@@ -560,15 +560,14 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
                " you can set one or default to ICE automatic discovery");
   }
 
-  gboolean niceAgentIceTcp;
-  if (getConfigValue <gboolean, WebRtcEndpoint> (&niceAgentIceTcp,
-      PARAM_NICEAGENT_ICE_TCP)) {
-    GST_INFO ("NiceAgent ice-tcp set to %d", niceAgentIceTcp);
-    g_object_set (G_OBJECT (element), PROP_NICEAGENT_ICE_TCP,
-        niceAgentIceTcp, NULL);
+  gboolean iceTcp;
+  if (getConfigValue<gboolean, WebRtcEndpoint> (&iceTcp, PARAM_ICE_TCP)) {
+    GST_INFO ("ICE-TCP candidate gathering is %s",
+        iceTcp ? "ENABLED" : "DISABLED");
+    g_object_set (G_OBJECT (element), PROP_ICE_TCP, iceTcp, NULL);
   } else {
-    GST_DEBUG ("NiceAgent ice-tcp option not found in config;"
-               " you can set one or default to ice-tcp 1 - TRUE");
+    GST_DEBUG ("ICE-TCP option not found in config;"
+               " you can set one or default to 1 (TRUE)");
   }
 
   uint stunPort = 0;
@@ -760,20 +759,19 @@ WebRtcEndpointImpl::setNetworkInterfaces (const std::string &networkInterfaces)
 }
 
 bool
-WebRtcEndpointImpl::getNiceAgentIceTcp ()
+WebRtcEndpointImpl::getIceTcp ()
 {
   bool ret;
 
-  g_object_get ( G_OBJECT (element), "niceagent-ice-tcp", &ret, NULL);
+  g_object_get (G_OBJECT (element), "ice-tcp", &ret, NULL);
 
   return ret;
 }
 
 void
-WebRtcEndpointImpl::setNiceAgentIceTcp (bool niceAgentIceTcp)
+WebRtcEndpointImpl::setIceTcp (bool iceTcp)
 {
-  g_object_set ( G_OBJECT (element), "niceagent-ice-tcp",
-                 niceAgentIceTcp, NULL);
+  g_object_set (G_OBJECT (element), "ice-tcp", iceTcp, NULL);
 }
 
 std::string

@@ -74,7 +74,7 @@ struct _KmsWebrtcSession
   gchar *external_address;
   gchar *external_ipv4;
   gchar *external_ipv6;
-  gboolean niceagent_ice_tcp;
+  gboolean ice_tcp;
 
   guint16 min_port;
   guint16 max_port;

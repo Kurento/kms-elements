@@ -305,8 +305,8 @@
           "type": "String"
         },
         {
-          "name": "niceAgentIceTcp",
           "doc": "Enable libnice agent's ice-tcp option",
+          "name": "iceTcp",
           "type": "boolean"
         },
         {
