@@ -61,6 +61,9 @@ public:
   std::string getIpIgnoreList () override;
   void setIpIgnoreList (const std::string &ipIgnoreList) override;
 
+  bool getIceTcp () override;
+  void setIceTcp (bool iceTcp) override;
+
   std::string getStunServerAddress () override;
   void setStunServerAddress (const std::string &stunServerAddress) override;
 

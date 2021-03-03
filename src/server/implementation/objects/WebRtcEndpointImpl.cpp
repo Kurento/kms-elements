@@ -57,12 +57,14 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 #define PARAM_EXTERNAL_IPV6 "externalIPv6"
 #define PARAM_NETWORK_INTERFACES "networkInterfaces"
 #define PARAM_IP_IGNORE_LIST "ipIgnoreList"
+#define PARAM_ICE_TCP "iceTcp"
 
 #define PROP_EXTERNAL_ADDRESS "external-address"
 #define PROP_EXTERNAL_IPV4 "external-ipv4"
 #define PROP_EXTERNAL_IPV6 "external-ipv6"
 #define PROP_NETWORK_INTERFACES "network-interfaces"
 #define PROP_IP_IGNORE_LIST "ip-ignore-list"
+#define PROP_ICE_TCP "ice-tcp"
 
 namespace kurento
 {
@@ -570,6 +572,16 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
     GST_DEBUG ("No IP ignore list found in config");
   }
 
+  gboolean iceTcp;
+  if (getConfigValue<gboolean, WebRtcEndpoint> (&iceTcp, PARAM_ICE_TCP)) {
+    GST_INFO ("ICE-TCP candidate gathering is %s",
+        iceTcp ? "ENABLED" : "DISABLED");
+    g_object_set (G_OBJECT (element), PROP_ICE_TCP, iceTcp, NULL);
+  } else {
+    GST_DEBUG ("ICE-TCP option not found in config;"
+               " you can set one or default to 1 (TRUE)");
+  }
+
   uint stunPort = 0;
 
   if (!getConfigValue <uint, WebRtcEndpoint> (&stunPort, "stunServerPort",
@@ -756,6 +768,22 @@ WebRtcEndpointImpl::setNetworkInterfaces (const std::string &networkInterfaces)
   GST_INFO ("Set network interfaces: %s", networkInterfaces.c_str());
   g_object_set (G_OBJECT (element), PROP_NETWORK_INTERFACES,
       networkInterfaces.c_str(), NULL);
+}
+
+bool
+WebRtcEndpointImpl::getIceTcp ()
+{
+  bool ret;
+
+  g_object_get (G_OBJECT (element), "ice-tcp", &ret, NULL);
+
+  return ret;
+}
+
+void
+WebRtcEndpointImpl::setIceTcp (bool iceTcp)
+{
+  g_object_set (G_OBJECT (element), "ice-tcp", iceTcp, NULL);
 }
 
 std::string
