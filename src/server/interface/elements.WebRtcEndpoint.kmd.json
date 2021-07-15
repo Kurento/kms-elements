@@ -304,6 +304,11 @@
           "type": "String"
         },
         {
+          "name": "ipIgnoreList",
+          "doc": "List of IP addresses to be ignored in the gathering phase when networkInterfaces is set",
+          "type": "String"
+        },
+        {
           "name": "iceTcp",
           "doc": "Enable ICE-TCP candidate gathering.
 <p>
