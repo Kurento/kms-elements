@@ -4,6 +4,8 @@ add_subdirectory(implementation/HttpServer)
 
 set(KMS_ELEMENTS_IMPL_SOURCES
   implementation/CertificateManager.cpp
+  implementation/objects/FacadeRtpEndpointImpl.cpp
+  implementation/objects/ComposedObjectImpl.cpp
 )
 
 set(KMS_ELEMENTS_IMPL_HEADERS

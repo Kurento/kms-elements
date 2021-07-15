@@ -1,0 +1,114 @@
+{
+  "remoteClasses": [
+    {
+      "name": "SipRtpEndpoint",
+      "extends": "BaseRtpEndpoint",
+      "doc": "Endpoint that provides the same functionality and features that :rom:cls:`RtpEndpoint` providing flexibility to allow integrating with legacy VoIP SIP networks. It mainly provides two features:
+      <ul  style='list-style-type:circle'>
+          <li>providing SDP renegotiation features that allow easy implementation of <a href='https://tools.ietf.org/html/draft-ietf-sip-183-00'>SIP 183</a> like flows. This endpoint inherits from :rom:cls:`BaseRtpEndpoint`</li>
+          <li>PRoviding flexible adaptation to use SRTP or not. That is, if this endpoint is configured with crypto, it can also be configured to offer SRTP only or SRTP and RTP communication channels, and can also process RTP or SRTP offers transperently.</li>
+      </ul>
+      </p>
+      <p>
+      It is however recommended that if you do not need any of thess features, to use the :rom:cls:`RtpEndpoint` to avoid unneeded overload due to the components instatiated to allow renegotiation. 
+      </p>
+      <p>
+      Unlike :rom:cls:`RtpEndpoint` this endpoint allows calling the SDP negotiation methods `generateOffer`, `processOffer` and `processOffer`
+      at any time regardless of the status of any previous SDP negotiation.
+      </p>
+      When any of the SDP negotiation methods are called and no previous negotiation has been made, the same rules that apply to 
+      :rom:cls:`RtpEndpoint` will apply now.
+      </p>
+      <p>
+      If any of the SDP negotiation methods are called and a previous negotiation were initiated (it does not matter if it is completed and media flowing or not)
+      the previous media is discarded and new media will be established according to the new SDP (offer or answer) exchanged.
+      </p>
+      <p>
+      More specifically:
+      <ul style='list-style-type:circle'>
+        <li>`generateOffer`, if this method is called with a previous negotiation initiated or even completed, the old media will be discarded and a new SDP offer will be generated. much like it would be done with a new RtpEndpoint. Ports and SSRC may change. Codecs will usually not change</li>
+        <li>`processOffer`, much like the previous one, if a previous negotiation was initiated or even completed, media will be discarded, ports and ssrcs may also change as it will be answering to a different SDP offer</li>
+        <li>`processAnswer`, similar to the previous this has some subtelties, as we are processing a new answer, original offer is maintained, this implies that ports, ssrcs and codecs offered by this endpoint are preserved. This implies that this new answer must be generated as a response to the original offer</li>
+      </ul>
+      </p>
+      <p>
+      If the answer changes chosen codecs, it may be possible that the endpoint processing the answer also instantiates a transcoder to adapt to the new codecs. 
+      This is needed because, if the original negotiation established some codecs, this affect at the pipeline and any other connected media Element. 
+      So, if renegotiation implies some change in codecs, the pipeline cannot change codecs in the other MediaElements, so a transocding is needed to adapt media with new codecs to the 
+      already established ones.
+      </p>
+      <p>
+      This Endpoint also allows for flexibility when negotiating an RTP or SRTP endpoint. This is intended for easy integration with legacy VoIP/SIP networks where you cannot know in advance if the remote endpoint will support SRTP or not.
+      In that case, the process is as follows:
+      <ul style='list-style-type:circle'>
+      	<li>To configure an endpoint to be SRTP/RTP agnostic, it must be created with the cryptoAgnostic parameter in the builder set to true. When it is set to true
+      	    it means that if processing an offer, it will process and accept both offers with RTP/AVP profile and with RTP/SAVP profiles</li>
+      	<li>If it also has configured the crypto argument when built, when generating and offer (call to generateOffer), will generate two sets of media lines, one for RTP/AVP profile and the other for RTP/SAVP profile.
+      	    Thus allowing the remote peer to select which lines it is interested in (secured or not secured). And provide the answer according to the chosen set. It is important to note that the remote peer should also 
+      	    answer to the m lines it is not interested in with the port set to 0</li>
+      	<li>Thus, if the endpoint is built with agnosticCrypto and crypto information, the offers generated will contain both RTP/AVP and RTP/SAVP lines, and it will accept answers to that offer that should accept a single
+      	    set of m lines (in those the answer should set the port of those lines to a valid number different from 0), and reject the lines (setting the port of those lines to 0). It is important to note, that if for any reason
+      	    the answer processed contains valid m lines (port set to a valid number different from 0) for both RTP/AVP and RTP/SAVP lines, the endpoint will 
+      	    just establish one of the set (if possible the one corresponding to RTP/SAVP profile)</li>
+      	<li>Then</li>
+      </ul>
+      </p>
+      <p>
+      There are some elements to take into account when dealing with VoIP environments. First one is that they can change SSRC on the fly  of a live RTP flow. This may be due to internal switching of media in VoIP provider, but it makes the RtpEndpoint useless as any change on the fly to the SSRC takes the RtpEndpoint to an open ended pipeline that causes a 'not linked' error and pauses the RtpEndpoint. SipRtpEndpoint supports SSRC switcjing on the fly by examining incoming SSRC in RTP/RTCP packets and if not used in previous media connections it let them pass, but changing in the RTP/RTCP packet the SSRC to the one of the first packet received in current RTP flow.
+      </p>
+      <p>
+      Another one is that when dealing with early media (used with SIP answer to INVITE 183). Sometimes the remote peer signals an early media (SIP answer 183 with an SDP) and then a definitive answer (200 with another SDP). But in fact there is no stream switching. SSRC, base timestamp, all is preserved. The point is that there is no change in media and no renegotiation is needed. The bad point is how to decide when renegotiation happens (two consecutive processAnswer) if packets correspondo to old stream or if no stream switching has happened. If control application is able to know that no stream switching is happening, and no renegotiation is needed it could just skip renegotiation (second processAnswer). But if not we can only make a guess: if second answer include same streams that first answer (same IP, port and profile), ost surely there is no stream switching. so that guess is also made on SipRtpEndpoint so that it behaves as expected in VoIP environments
+      </p>
+      ",
+      "constructor":
+        {
+          "doc": "Builder for the :rom:cls:`SipRtpEndpoint`",
+          "params": [
+            {
+              "name": "mediaPipeline",
+              "doc": "the :rom:cls:`MediaPipeline` to which the endpoint belongs",
+              "type": "MediaPipeline"
+            },
+            {
+              "name": "crypto",
+              "doc": "SDES-type param. If present, this parameter indicates that the communication will be encrypted. By default no encryption is used. This behaves exactly the same as the crypto builder parameter for RtpEndpoint.",
+              "type": "SDES",
+              "optional": true,
+              "defaultValue": {}
+            },
+            {
+              "name": "cryptoAgnostic",
+              "doc": "This connfigured the endpoint to be SRTP/RTP agnostic, that is to be able to offer and accept both secure and not secure profiles (SRTP/SAVP and RTP/AVP)",
+              "type": "boolean",
+              "optional": true,
+              "defaultValue": false
+            },
+            {
+              "name": "useIpv6",
+              "doc": "This configures the endpoint to use IPv6 instead of IPv4.",
+              "type": "boolean",
+              "optional": true,
+              "defaultValue": false
+            }
+          ]
+        },
+      "events": [
+        "OnKeySoftLimit"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "OnKeySoftLimit",
+      "doc": "Fired when encryption is used and any stream reached the soft key usage limit, which means it will expire soon.",
+      "extends": "Media",
+      "properties": [
+        {
+          "name": "mediaType",
+          "doc": "The media stream",
+          "type": "MediaType"
+        }
+      ]
+    }
+  ]
+}

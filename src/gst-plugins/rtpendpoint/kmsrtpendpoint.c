@@ -1106,7 +1106,7 @@ kms_rtp_endpoint_class_init (KmsRtpEndpointClass * klass)
       "RtpEndpoint",
       "RTP/Stream/RtpEndpoint",
       "Rtp Endpoint element",
-      "José Antonio Santos Cadenas <santoscadenas@kurento.com>");
+      "Jose Antonio Santos Cadenas <santoscadenas@kurento.com>");
   GST_DEBUG_CATEGORY_INIT (GST_CAT_DEFAULT, PLUGIN_NAME, 0, PLUGIN_NAME);
 
   base_sdp_endpoint_class = KMS_BASE_SDP_ENDPOINT_CLASS (klass);
@@ -1171,17 +1171,3 @@ kms_rtp_endpoint_init (KmsRtpEndpoint * self)
       "max-video-recv-bandwidth", 0, NULL);
   /* FIXME: remove max-video-recv-bandwidth when it b=AS:X is in the SDP offer */
 }
-
-gboolean
-kms_rtp_endpoint_plugin_init (GstPlugin * plugin)
-{
-  return gst_element_register (plugin, PLUGIN_NAME, GST_RANK_NONE,
-      KMS_TYPE_RTP_ENDPOINT);
-}
-
-GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    kmsrtpendpoint,
-    "Kurento rtp endpoint",
-    kms_rtp_endpoint_plugin_init, VERSION, GST_LICENSE_UNKNOWN,
-    "Kurento Elements", "http://kurento.com/")

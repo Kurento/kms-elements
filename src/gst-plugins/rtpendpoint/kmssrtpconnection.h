@@ -19,6 +19,9 @@
 #define __KMS_SRTP_CONNECTION_H__
 
 #include "kmsrtpbaseconnection.h"
+#include "kmsrtpfilterutils.h"
+#include <gst/sdp/gstsdpmessage.h>
+#include <gio/gio.h>
 
 G_BEGIN_DECLS
 
@@ -57,6 +60,22 @@ GType kms_srtp_connection_get_type (void);
 
 KmsSrtpConnection *kms_srtp_connection_new (guint16 min_port, guint16 max_port, gboolean use_ipv6);
 void kms_srtp_connection_set_key (KmsSrtpConnection *conn, const gchar *key, guint auth, guint cipher, gboolean local);
+
+KmsSrtpConnection *
+kms_sip_srtp_connection_new (guint16 min_port, guint16 max_port, gboolean use_ipv6,
+		GSocket *rtp_sock, GSocket *rtcp_sock,
+		SipFilterSsrcInfo* filter_info, gulong *rtp_probe_id, gulong *rtcp_probe_id);
+
+void
+kms_sip_srtp_connection_add_probes (KmsSrtpConnection *conn, SipFilterSsrcInfo* filter_info, gulong *rtp_probe_id, gulong *rtcp_probe_id);
+
+void
+kms_sip_srtp_connection_release_probes (KmsSrtpConnection *conn, gulong rtp_probe_id, gulong rtcp_probe_id);
+
+void kms_sip_srtp_connection_retrieve_sockets (KmsSrtpConnection *conn, GSocket **rtp, GSocket **rtcp);
+
+void kms_sip_srtp_connection_set_key (KmsSrtpConnection *conn, const gchar *key, guint auth, guint cipher, gboolean local);
+
 
 G_END_DECLS
 #endif /* __KMS_RTP_CONNECTION_H__ */

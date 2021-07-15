@@ -9,11 +9,17 @@ set(KMS_RTPENDPOINT_SOURCES
   kmsrtpendpoint.c
   kmssocketutils.c
   kmsrandom.c
+  kmsrtpfilterutils.c
+  kmssiprtpendpoint.c
+  kmssiprtpsession.c
+  kmssipsrtpsession.c
+  kmsrtpendpoint-plugin-init.c
 )
 
 set(KMS_RTPENDPOINT_HEADERS
   kmsrtpendpoint.h
   kmssocketutils.h
+  kmssiprtpendpoint.h
 )
 
 set(ENUM_HEADERS
