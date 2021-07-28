@@ -1,8 +1,21 @@
-kms-elements (7.0.0-0kurento1) UNRELEASED; urgency=medium
+kms-elements (7.0.0-0kurento1.18.04~20210728090815.gbp04fd83) UNRELEASED; urgency=medium
 
+  ** SNAPSHOT build @04fd83a8e6977d697d52cc2e640519c56efddb9c **
+
+  [ Juan Navarro ]
   * UNRELEASED
 
- -- Juan Navarro <juan.navarro@gmx.es>  Wed, 03 Mar 2021 12:26:48 +0100
+  [ root ]
+  * UNRELEASED
+  * UNRELEASED
+  * UNRELEASED
+  * UNRELEASED
+  * UNRELEASED
+  * UNRELEASED
+  * UNRELEASED
+  * UNRELEASED
+
+ -- root <root@d430ee2d7617>  Wed, 28 Jul 2021 09:08:44 +0000
 
 kms-elements (6.16.0-0kurento1) testing; urgency=medium
 
