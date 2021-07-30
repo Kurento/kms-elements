@@ -27,6 +27,7 @@ set_property (TARGET rtcpdemux
     ${CMAKE_CURRENT_BINARY_DIR}/../../..
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
+    ${KmsGstCommons_INCLUDE_DIRS}
     ${gstreamer-1.5_INCLUDE_DIRS}
     ${gstreamer-base-1.5_INCLUDE_DIRS}
     ${gstreamer-rtp-1.5_INCLUDE_DIRS}
