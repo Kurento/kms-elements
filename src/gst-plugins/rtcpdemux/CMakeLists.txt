@@ -17,6 +17,7 @@ if(SANITIZERS_ENABLED)
 endif()
 
 target_link_libraries(rtcpdemux
+  ${KmsGstCommons_LIBRARIES}
   ${gstreamer-1.5_LIBRARIES}
   ${gstreamer-base-1.5_LIBRARIES}
   ${gstreamer-rtp-1.5_LIBRARIES}

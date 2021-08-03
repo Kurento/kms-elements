@@ -42,6 +42,8 @@
 #include "kmsrtcpdemux.h"
 
 #include <commons/sdp_utils.h> // SSRC_INVALID
+#include <commons/kmsremb.h>
+#include <commons/kmsrtcp.h>
 
 #include <string.h>
 
@@ -189,9 +191,6 @@ handle_rtcp_rr (KmsRtcpDemux *self, GstBuffer *buffer, GstRTCPPacket *packet)
   const guint32 remote_ssrc = gst_rtcp_packet_rr_get_ssrc (packet);
   const guint rb_count = gst_rtcp_packet_get_rb_count (packet);
 
-  GST_TRACE_OBJECT (self, "Got RTCP-RR with remote SSRC: %u, RB count: %u",
-      remote_ssrc, rb_count);
-
   if (rb_count == 0) {
     // Invalid RTCP. Without Report Blocks in the RTCP packet, we cannot know
     // the local SSRCs to which the RTCP packet refers to.
@@ -202,6 +201,10 @@ handle_rtcp_rr (KmsRtcpDemux *self, GstBuffer *buffer, GstRTCPPacket *packet)
     guint32 local_ssrc;
     gst_rtcp_packet_get_rb (packet, i, &local_ssrc, NULL, NULL, NULL, NULL,
         NULL, NULL);
+
+    GST_TRACE_OBJECT (self,
+        "Got RTCP-RR with remote SSRC: %u, local SSRC: %u, RB count: %u",
+        remote_ssrc, local_ssrc, rb_count);
 
     // Store the match between remote (Source) and local (Media) SSRC.
     //
@@ -228,27 +231,75 @@ handle_rtcp_fb (KmsRtcpDemux *self, GstBuffer *buffer, GstRTCPPacket *packet)
 {
   const guint32 remote_ssrc = gst_rtcp_packet_fb_get_sender_ssrc (packet);
   const GstRTCPFBType type = gst_rtcp_packet_fb_get_type (packet);
-  guint32 local_ssrc = SSRC_INVALID;
 
-  switch (type) {
-  case GST_RTCP_PSFB_TYPE_FIR: {
-    guint8 *data = gst_rtcp_packet_fb_get_fci (packet);
-    local_ssrc = GST_READ_UINT32_BE (data);
-    break;
-  }
-  case GST_RTCP_FB_TYPE_INVALID:
+  if (type == GST_RTCP_PSFB_TYPE_FIR) {
+    guint8 *fci = gst_rtcp_packet_fb_get_fci (packet);
+    guint32 local_ssrc = GST_READ_UINT32_BE (fci);
+
+    GST_TRACE_OBJECT (self,
+        "Got RTCP-PSFB-FIR with remote SSRC: %u, local SSRC: %u, type: %d",
+        remote_ssrc, local_ssrc, type);
+
+    handle_rtcp_ssrc (self, buffer, local_ssrc);
+  } else if (type == GST_RTCP_PSFB_TYPE_AFB) {
+    guint8 *fci = gst_rtcp_packet_fb_get_fci (packet);
+
+    // Size in bytes: Length in 32-bit words * 4 bytes per word.
+    guint16 fci_size = gst_rtcp_packet_fb_get_fci_length (packet) * 4;
+
+    // Make a new buffer that wraps just the FCI portion of the FB packet. Our
+    // code for handling RTCP-PSFB-AFB was written for the signal handler of
+    // `RTPSession::on-feedback-rtcp`, which sends a `GstBuffer *fci` that only
+    // contains the FCI part, not the whole RTCP packet. So here we do the same,
+    // with a non-owning buffer (it won't free or touch the wrapped data).
+    GstBuffer *fci_buffer = gst_buffer_new_wrapped_full (
+        GST_MEMORY_FLAG_READONLY, fci, fci_size, 0, fci_size, NULL, NULL);
+
+    KmsRTCPPSFBAFBBuffer afb_buffer = {0};
+    if (!kms_rtcp_psfb_afb_buffer_map (fci_buffer, GST_MAP_READ, &afb_buffer)) {
+      GST_WARNING_OBJECT (self, "RTCP-PSFB-AFB buffer cannot be mapped");
+      goto end_rtcp_psfb_afb_unref;
+    }
+
+    KmsRTCPPSFBAFBPacket afb_packet = {0};
+    if (!kms_rtcp_psfb_afb_get_packet (&afb_buffer, &afb_packet)) {
+      GST_WARNING_OBJECT (self, "Cannot get packet from RTCP-PSFB-AFB buffer");
+      goto end_rtcp_psfb_afb_unmap;
+    }
+
+    KmsRTCPPSFBAFBType type = kms_rtcp_psfb_afb_packet_get_type (&afb_packet);
+
+    if (type == KMS_RTCP_PSFB_AFB_TYPE_REMB) {
+      KmsRTCPPSFBAFBREMBPacket remb_packet = {0};
+      kms_rtcp_psfb_afb_remb_get_packet (&afb_packet, &remb_packet);
+
+      for (guint i = 0; i < remb_packet.n_ssrcs; ++i) {
+        guint32 local_ssrc = remb_packet.ssrcs[i];
+
+        GST_TRACE_OBJECT (self,
+            "Got RTCP-PSFB-AFB-REMB with remote SSRC: %u, local SSRC: %u, type: %d",
+            remote_ssrc, local_ssrc, type);
+
+        handle_rtcp_ssrc (self, buffer, local_ssrc);
+      }
+    }
+
+  end_rtcp_psfb_afb_unmap:
+    kms_rtcp_psfb_afb_buffer_unmap (&afb_buffer);
+  end_rtcp_psfb_afb_unref:
+    gst_buffer_unref (fci_buffer);
+  } else if (type == GST_RTCP_FB_TYPE_INVALID) {
     // Don't handle invalid RTCP packets.
     return;
-  default:
-    local_ssrc = gst_rtcp_packet_fb_get_media_ssrc (packet);
-    break;
+  } else {
+    guint32 local_ssrc = gst_rtcp_packet_fb_get_media_ssrc (packet);
+
+    GST_TRACE_OBJECT (self,
+        "Got RTCP-FB with remote SSRC: %u, local SSRC: %u, type: %d",
+        remote_ssrc, local_ssrc, type);
+
+    handle_rtcp_ssrc (self, buffer, local_ssrc);
   }
-
-  GST_TRACE_OBJECT (self,
-      "Got RTCP-FB with remote SSRC: %u, local SSRC: %u, type: %d", remote_ssrc,
-      local_ssrc, type);
-
-  handle_rtcp_ssrc (self, buffer, local_ssrc);
 }
 
 static GstFlowReturn
@@ -280,6 +331,10 @@ kms_rtcp_demux_chain (GstPad *pad, GstObject *parent, GstBuffer *buffer)
   // Compound RTCP packet, as defined in RFC 3550 (6.1 RTCP Packet Format).
   do {
     const GstRTCPType type = gst_rtcp_packet_get_type (&packet);
+
+    // Dump the RTCP buffer hex representation.
+    // DEBUG: Uncomment to enable.
+    // gst_util_dump_mem (rtcp.map.data, rtcp.map.size);
 
     switch (type) {
     case GST_RTCP_TYPE_RR:
