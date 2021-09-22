@@ -35,7 +35,7 @@
 #include "kmsrtpsdescryptosuite.h"
 #include "kmsrandom.h"
 
-#include <stdlib.h> // atoi()
+#include <stdlib.h>             // atoi()
 
 #define PLUGIN_NAME "rtpendpoint"
 
@@ -84,8 +84,8 @@ typedef struct _SdesKeys
 typedef struct _KmsComedia KmsComedia;
 struct _KmsComedia
 {
-  GHashTable *rtp_conns; // GHashTable<RTPSession*, KmsIRtpConnection*>
-  GHashTable *signal_ids; // GHashTable<RTPSession*, int>
+  GHashTable *rtp_conns;        // GHashTable<RTPSession*, KmsIRtpConnection*>
+  GHashTable *signal_ids;       // GHashTable<RTPSession*, int>
 };
 
 struct _KmsRtpEndpointPrivate
@@ -93,7 +93,7 @@ struct _KmsRtpEndpointPrivate
   gboolean use_sdes;
   GHashTable *sdes_keys;
 
-  gchar *master_key;  // SRTP Master Key, base64 encoded
+  gchar *master_key;            // SRTP Master Key, base64 encoded
   KmsRtpSDESCryptoSuite crypto;
 
   /* COMEDIA (passive port discovery) */
@@ -319,13 +319,27 @@ kms_rtp_endpoint_set_addr (KmsRtpEndpoint * self)
 {
   GList *ips, *l;
   gboolean done = FALSE;
+  gboolean use_ipv6;
+  gchar *external_ip;
+
+  g_object_get (self, "use-ipv6", &use_ipv6, NULL);
+
+  g_object_get (self, use_ipv6 ? "external-ipv6" : "external-ipv4",
+      &external_ip, NULL);
+
+  if (external_ip != NULL) {
+    g_object_set (self, "addr", external_ip, NULL);
+    g_free (external_ip);
+    done = TRUE;
+    return;
+  }
 
   ips = nice_interfaces_get_local_ips (FALSE);
   for (l = ips; l != NULL && !done; l = l->next) {
     GInetAddress *addr;
     gboolean is_ipv6 = FALSE;
 
-    GST_DEBUG_OBJECT (self, "Check local address: %s", (const gchar*)l->data);
+    GST_DEBUG_OBJECT (self, "Check local address: %s", (const gchar *) l->data);
     addr = g_inet_address_new_from_string (l->data);
 
     if (G_IS_INET_ADDRESS (addr)) {
@@ -339,9 +353,7 @@ kms_rtp_endpoint_set_addr (KmsRtpEndpoint * self)
         case G_SOCKET_FAMILY_IPV4:
         {
           gchar *addr_str;
-          gboolean use_ipv6;
 
-          g_object_get (self, "use-ipv6", &use_ipv6, NULL);
           if (is_ipv6 != use_ipv6) {
             GST_DEBUG_OBJECT (self, "Skip address (wanted IPv6: %d)", use_ipv6);
             break;
@@ -762,6 +774,7 @@ kms_rtp_endpoint_configure_media (KmsBaseSdpEndpoint * base_sdp_endpoint,
 
     if (g_strcmp0 (attr->key, "rtcp") == 0) {
       const guint rtcp_port = kms_rtp_base_connection_get_rtcp_port (conn);
+
       g_free (attr->value);
       attr->value = g_strdup_printf ("%" G_GUINT32_FORMAT, rtcp_port);
     }
@@ -778,10 +791,10 @@ kms_rtp_endpoint_configure_media (KmsBaseSdpEndpoint * base_sdp_endpoint,
 /* Configure media SDP end */
 
 static void
-kms_rtp_endpoint_comedia_on_ssrc_active(GObject *rtpsession,
-    GObject *rtpsource, KmsRtpEndpoint *self)
+kms_rtp_endpoint_comedia_on_ssrc_active (GObject * rtpsession,
+    GObject * rtpsource, KmsRtpEndpoint * self)
 {
-  GstStructure* source_stats = NULL;
+  GstStructure *source_stats = NULL;
   gchar *rtp_from = NULL;
   gchar *rtcp_from = NULL;
   GNetworkAddress *rtp_addr = NULL;
@@ -798,7 +811,8 @@ kms_rtp_endpoint_comedia_on_ssrc_active(GObject *rtpsession,
 
   // Property RTPSource::ssrc, doc: GStreamer/rtpsource.c
   g_object_get (rtpsource,
-      "ssrc", &ssrc, "is-validated", &is_validated, "is-sender", &is_sender, NULL);
+      "ssrc", &ssrc, "is-validated", &is_validated, "is-sender", &is_sender,
+      NULL);
 
   if (!is_validated || !is_sender) {
     GST_DEBUG_OBJECT (rtpsession,
@@ -838,44 +852,54 @@ kms_rtp_endpoint_comedia_on_ssrc_active(GObject *rtpsession,
     goto end;
   }
 
-  rtcp_addr = G_NETWORK_ADDRESS (
-      g_network_address_parse (rtcp_from, 5005, NULL));
+  rtcp_addr =
+      G_NETWORK_ADDRESS (g_network_address_parse (rtcp_from, 5005, NULL));
   if (!rtcp_addr) {
     GST_ERROR_OBJECT (rtpsession, "COMEDIA: Cannot parse 'rtcp-from'");
     goto end;
   }
 
   KmsRtpBaseConnection *conn =
-    g_hash_table_lookup (self->priv->comedia.rtp_conns, rtpsession);
+      g_hash_table_lookup (self->priv->comedia.rtp_conns, rtpsession);
 
-  kms_rtp_base_connection_set_remote_info(conn,
-    g_network_address_get_hostname (rtcp_addr),
-    g_network_address_get_port (rtp_addr),
-    g_network_address_get_port (rtcp_addr));
+  kms_rtp_base_connection_set_remote_info (conn,
+      g_network_address_get_hostname (rtcp_addr),
+      g_network_address_get_port (rtp_addr),
+      g_network_address_get_port (rtcp_addr));
 
-  GST_INFO_OBJECT (rtpsession, "COMEDIA: Parsed route: IP: %s, RTP: %u, RTCP: %u",
-    g_network_address_get_hostname (rtcp_addr),
-    g_network_address_get_port (rtp_addr),
-    g_network_address_get_port (rtcp_addr));
+  GST_INFO_OBJECT (rtpsession,
+      "COMEDIA: Parsed route: IP: %s, RTP: %u, RTCP: %u",
+      g_network_address_get_hostname (rtcp_addr),
+      g_network_address_get_port (rtp_addr),
+      g_network_address_get_port (rtcp_addr));
 
   gulong signal_id =
-    GPOINTER_TO_UINT(
-      g_hash_table_lookup (self->priv->comedia.signal_ids, rtpsession));
+      GPOINTER_TO_UINT (g_hash_table_lookup (self->priv->comedia.signal_ids,
+          rtpsession));
 
-  GST_INFO_OBJECT (rtpsession, "COMEDIA: Disconnect from signal 'on_ssrc_active'");
+  GST_INFO_OBJECT (rtpsession,
+      "COMEDIA: Disconnect from signal 'on_ssrc_active'");
   g_signal_handler_disconnect (rtpsession, signal_id);
 
 end:
-  if (rtp_addr) { g_object_unref (rtp_addr); }
-  if (rtcp_addr) { g_object_unref (rtcp_addr); }
-  if (rtp_from) { g_free(rtp_from); }
-  if (rtcp_from) { g_free(rtcp_from); }
+  if (rtp_addr) {
+    g_object_unref (rtp_addr);
+  }
+  if (rtcp_addr) {
+    g_object_unref (rtcp_addr);
+  }
+  if (rtp_from) {
+    g_free (rtp_from);
+  }
+  if (rtcp_from) {
+    g_free (rtcp_from);
+  }
   gst_structure_free (source_stats);
 }
 
 static void
-kms_rtp_endpoint_comedia_manager_create(KmsRtpEndpoint *self,
-    const GstSDPMedia *media, KmsRtpBaseConnection *conn)
+kms_rtp_endpoint_comedia_manager_create (KmsRtpEndpoint * self,
+    const GstSDPMedia * media, KmsRtpBaseConnection * conn)
 {
   const gchar *media_str = gst_sdp_media_get_media (media);
   guint session_id;
@@ -890,11 +914,12 @@ kms_rtp_endpoint_comedia_manager_create(KmsRtpEndpoint *self,
     return;
   }
 
-  GObject *rtpsession = kms_base_rtp_endpoint_get_internal_session (
-      KMS_BASE_RTP_ENDPOINT(self), session_id);
+  GObject *rtpsession =
+      kms_base_rtp_endpoint_get_internal_session (KMS_BASE_RTP_ENDPOINT (self),
+      session_id);
+
   if (!rtpsession) {
-    GST_WARNING_OBJECT (self,
-        "Abort: No RTP Session with ID %u", session_id);
+    GST_WARNING_OBJECT (self, "Abort: No RTP Session with ID %u", session_id);
     return;
   }
 
@@ -904,14 +929,14 @@ kms_rtp_endpoint_comedia_manager_create(KmsRtpEndpoint *self,
   g_hash_table_insert (self->priv->comedia.rtp_conns, g_object_ref (rtpsession),
       conn);
   g_hash_table_insert (self->priv->comedia.signal_ids,
-      g_object_ref (rtpsession), GUINT_TO_POINTER(signal_id));
+      g_object_ref (rtpsession), GUINT_TO_POINTER (signal_id));
 
   g_object_unref (rtpsession);
 }
 
 static void
-kms_rtp_endpoint_start_transport_send (KmsBaseSdpEndpoint *base_sdp_endpoint,
-    KmsSdpSession *sess, gboolean offerer)
+kms_rtp_endpoint_start_transport_send (KmsBaseSdpEndpoint * base_sdp_endpoint,
+    KmsSdpSession * sess, gboolean offerer)
 {
   KmsRtpEndpoint *self = KMS_RTP_ENDPOINT (base_sdp_endpoint);
   const GstSDPConnection *msg_conn;
@@ -923,6 +948,7 @@ kms_rtp_endpoint_start_transport_send (KmsBaseSdpEndpoint *base_sdp_endpoint,
   msg_conn = gst_sdp_message_get_connection (sess->remote_sdp);
 
   guint len = gst_sdp_message_medias_len (sess->remote_sdp);
+
   for (guint i = 0; i < len; i++) {
     const GstSDPMedia *media = gst_sdp_message_get_media (sess->remote_sdp, i);
     const GstSDPConnection *media_con;
@@ -945,11 +971,11 @@ kms_rtp_endpoint_start_transport_send (KmsBaseSdpEndpoint *base_sdp_endpoint,
     }
 
     if (media_con == NULL
-        || media_con->address == NULL
-        || media_con->address[0] == '\0')
-    {
+        || media_con->address == NULL || media_con->address[0] == '\0') {
       const gchar *media_str = gst_sdp_media_get_media (media);
-      GST_WARNING_OBJECT (self, "Missing connection information for '%s'", media_str);
+
+      GST_WARNING_OBJECT (self, "Missing connection information for '%s'",
+          media_str);
       continue;
     }
 
@@ -970,28 +996,32 @@ kms_rtp_endpoint_start_transport_send (KmsBaseSdpEndpoint *base_sdp_endpoint,
     // the passive peer, so the remote IP and port will be discovered
     // when packets start arriving from the other end.
     gboolean comedia_enabled =
-        g_strcmp0(gst_sdp_media_get_attribute_val(media, "direction"),
-                   "active") == 0;
+        g_strcmp0 (gst_sdp_media_get_attribute_val (media, "direction"),
+        "active") == 0;
+
     if (comedia_enabled) {
       const gchar *media_str = gst_sdp_media_get_media (media);
+
       GST_INFO_OBJECT (self, "COMEDIA: Media '%s' uses COMEDIA", media_str);
-      kms_rtp_endpoint_comedia_manager_create(self, media, conn);
-    }
-    else {
+      kms_rtp_endpoint_comedia_manager_create (self, media, conn);
+    } else {
       const gchar *media_str = gst_sdp_media_get_media (media);
-      GST_INFO_OBJECT (self, "COMEDIA: Media '%s' doesn't use COMEDIA", media_str);
+
+      GST_INFO_OBJECT (self, "COMEDIA: Media '%s' doesn't use COMEDIA",
+          media_str);
 
       guint rtp_port = gst_sdp_media_get_port (media);
       guint rtcp_port = rtp_port + 1;
 
-      const gchar *attr_rtcp_port = gst_sdp_media_get_attribute_val(media,
+      const gchar *attr_rtcp_port = gst_sdp_media_get_attribute_val (media,
           "rtcp");
+
       if (attr_rtcp_port != NULL) {
-        rtcp_port = (guint)atoi (attr_rtcp_port);
+        rtcp_port = (guint) atoi (attr_rtcp_port);
       }
 
       kms_rtp_base_connection_set_remote_info (conn,
-          media_con->address, (gint)rtp_port, (gint)rtcp_port);
+          media_con->address, (gint) rtp_port, (gint) rtcp_port);
     }
   }
 }
@@ -1007,12 +1037,14 @@ kms_rtp_endpoint_set_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_MASTER_KEY:{
       const gchar *key_b64 = g_value_get_string (value);
+
       if (key_b64 == NULL) {
         break;
       }
 
       gsize key_data_size;
       guchar *tmp_b64 = g_base64_decode (key_b64, &key_data_size);
+
       if (!tmp_b64) {
         GST_ERROR_OBJECT (self, "Master key is not valid Base64");
         break;
@@ -1020,8 +1052,7 @@ kms_rtp_endpoint_set_property (GObject * object, guint prop_id,
       g_free (tmp_b64);
 
       if (key_data_size != KMS_SRTP_CIPHER_AES_CM_128_SIZE
-          && key_data_size != KMS_SRTP_CIPHER_AES_CM_256_SIZE)
-      {
+          && key_data_size != KMS_SRTP_CIPHER_AES_CM_256_SIZE) {
         GST_ERROR_OBJECT (self,
             "Bad Base64-decoded master key size: got %lu, expected %lu or %lu",
             key_data_size, KMS_SRTP_CIPHER_AES_CM_128_SIZE,
@@ -1168,7 +1199,8 @@ kms_rtp_endpoint_init (KmsRtpEndpoint * self)
 
   g_object_set (G_OBJECT (self), "bundle",
       FALSE, "rtcp-mux", FALSE, "rtcp-nack", TRUE, "rtcp-remb", TRUE,
-      "max-video-recv-bandwidth", 0, NULL);
+      "max-video-recv-bandwidth", 0, "external-ipv4", 0, "external-ipv6", 0,
+      NULL);
   /* FIXME: remove max-video-recv-bandwidth when it b=AS:X is in the SDP offer */
 }
 
