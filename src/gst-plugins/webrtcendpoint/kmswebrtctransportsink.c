@@ -34,34 +34,36 @@ G_DEFINE_TYPE (KmsWebrtcTransportSink, kms_webrtc_transport_sink, GST_TYPE_BIN);
 #define DTLS_ENCODER_FACTORY_NAME "dtlsenc"
 
 
-static GType 
-get_type_from_factory_name (const gchar *factory_name)
-{
-  GstElementFactory *factory;
-  GType type = 0;
 
-  factory = gst_element_factory_find (factory_name)
-
-  if (factory != NULL) {
-    type = gst_element_factory_get_element_type (factory_name); 
-
-    g_object_unref(factory);
-  }
-  return type;
-}
-
-static GElement*
+static GstElement*
 kms_webrtc_transport_sink_get_element_in_dtlssrtpenc (KmsWebrtcTransportSink *self, const gchar *factory_name)
 {
-  GType type;
+  GstIterator *iterator;
+  GValue item = G_VALUE_INIT;
+  GstElement *element;
+  GstElementFactory *factory;
 
-  type = get_type_from_factory_name (factory_name);
-  if (type != 0) {
-    return gst_bin_get_by_interface (GST_BIN(self->dtlssrtpenc), type);
-  } else {
-    GST_WARNING_OBJECT (self, "Factory %s not installed", factory_name);
+  factory = gst_element_factory_find (factory_name);
+
+  if (factory == NULL) {
+    GST_WARNING_OBJECT(self, "Factory %s not installed", factory_name);
     return NULL;
   }
+
+  // Until KMS is updated to GStreamer 1.18 and method https://gstreamer.freedesktop.org/documentation/gstreamer/gstbin.html#gst_bin_iterate_all_by_element_factory_name
+  // is available, this will do
+  iterator = gst_bin_iterate_elements (GST_BIN(self->dtlssrtpenc));
+  while (gst_iterator_next (iterator, &item) == GST_ITERATOR_OK) {
+    element = (GstElement *) g_value_get_object (&item);
+    if (factory == gst_element_get_factory (element)) {
+      break;
+    } else {
+      element = NULL;
+    }
+  }
+  gst_iterator_free (iterator);
+  g_object_unref (factory);
+  return element;
 }
 
 static void
@@ -92,7 +94,7 @@ kms_webrtc_transport_sink_connect_elements (KmsWebrtcTransportSink *self)
     g_object_set (funnel, "forward-sticky-events-mode", 0 /* never */ , NULL);
     g_object_unref (funnel);
   } else {
-    GST_WARNING ("Cannot get funnel with name %s", FUNNEL_NAME);
+    GST_WARNING ("Cannot get funnel with factory %s", FUNNEL_FACTORY_NAME);
   }
 
   srtpenc = kms_webrtc_transport_sink_get_element_in_dtlssrtpenc (self, SRTPENC_FACTORY_NAME);
@@ -101,7 +103,7 @@ kms_webrtc_transport_sink_connect_elements (KmsWebrtcTransportSink *self)
         RTP_RTX_SIZE, NULL);
     g_object_unref (srtpenc);
   } else {
-    GST_WARNING ("Cannot get srtpenc with name %s", SRTPENC_NAME);
+    GST_WARNING ("Cannot get srtpenc with factory %s", SRTPENC_FACTORY_NAME);
   }
 
 }
@@ -182,7 +184,7 @@ kms_webrtc_transport_sink_start_dtls (KmsWebrtcTransportSink * self)
 
     g_object_unref (dtls_encoder);
   } else  {
-    GST_WARNING ("Cannot get DTLS encoder with name %s", DTLS_ENCODER_NAME);
+    GST_WARNING_OBJECT ("Cannot get DTLS encoder with factory %s", DTLS_ENCODER_FACTORY_NAME);
   }
 }
 
