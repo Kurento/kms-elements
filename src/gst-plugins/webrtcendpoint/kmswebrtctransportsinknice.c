@@ -36,7 +36,7 @@ static void
 kms_webrtc_transport_sink_nice_init (KmsWebrtcTransportSinkNice * self)
 {
   KmsWebrtcTransportSink *parent = KMS_WEBRTC_TRANSPORT_SINK (self);
-  
+
   parent->sink = gst_element_factory_make ("nicesink", NULL);
 
   kms_webrtc_transport_sink_connect_elements (parent);
