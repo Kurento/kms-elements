@@ -63,6 +63,11 @@ kms_webrtc_transport_sink_get_element_in_dtlssrtpenc (KmsWebrtcTransportSink *se
   }
   gst_iterator_free (iterator);
   g_object_unref (factory);
+
+  if (element != NULL) {
+    element = g_value_dup_object (&item);
+    g_value_unset (&item);
+  }
   return element;
 }
 
