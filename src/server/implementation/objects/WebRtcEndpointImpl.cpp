@@ -599,9 +599,11 @@ WebRtcEndpointImpl::WebRtcEndpointImpl (const boost::property_tree::ptree &conf,
     }
   }
 
-  if (qosDscp->getValue () != DSCPValue::NO_VALUE) {
+  if ((qosDscp->getValue () != DSCPValue::NO_VALUE) && (qosDscp->getValue() != DSCPValue::NO_DSCP)) {
     GST_INFO ("Setting QOS-DSCP value to %s", qosDscp->getString().c_str());
     g_object_set (element, "qos-dscp", get_dscp_value (qosDscp), NULL);
+  } else {
+    GST_INFO ("No QOS-DSCP value set");
   }
 
 

@@ -935,7 +935,8 @@ This could also happen in the middle of a session, though not likely.
     {
       "typeFormat": "ENUM",
       "values": [
-        "NO_VALUE",                 //  -1
+        "NO_DSCP",                  //  -1 USed to signal that no DSCP feature is requested
+        "NO_VALUE",                 //  -1 Used to signal to use the default value configured in configuration file
         "AUDIO_VERYLOW",            //   LE (1)
         "AUDIO_LOW",                //   DF (0)        
         "AUDIO_MEDIUM",             //  EF (46)
