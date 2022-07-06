@@ -1004,7 +1004,10 @@ This could also happen in the middle of a session, though not likely.
       As indicated also in RFC, non interactive video is not considered
       <p>
       Apart from the WebRTC recommended values, we also include all possible values are referenced in http://www.iana.org/assignments/dscp-registry/dscp-registry.xml of course some of 
-      those values are synomims for the WebRTC recommended ones, they are included mainly for completeness"
+      those values are synomims for the WebRTC recommended ones, they are included mainly for completeness
+      <p>
+      This only covers outgoing network packets form KMS, to complete the solution, DSCP must be also requested on client, unfortunatelly for traffic on the other direction, this must be requested to the 
+      browser or client. On browser, the client application needs to use the following API https://www.w3.org/TR/webrtc-priority/"
     }
   ]
 }
