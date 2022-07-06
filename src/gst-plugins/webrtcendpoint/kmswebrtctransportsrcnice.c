@@ -44,6 +44,10 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
   )                                                   \
 )
 
+// First byte of a DTLS packet is in the range 19 < B < 64.
+// Doc: https://datatracker.ietf.org/doc/html/rfc5764#section-5.1.2
+#define PACKET_IS_DTLS(b) ((b) > 0x13 && (b) < 0x40)
+
 struct _KmsWebrtcTransportSrcNicePrivate
 {
   GRecMutex mutex;
@@ -55,6 +59,47 @@ struct _KmsWebrtcTransportSrcNicePrivate
 
 G_DEFINE_TYPE_WITH_CODE (KmsWebrtcTransportSrcNice, kms_webrtc_transport_src_nice, KMS_TYPE_WEBRTC_TRANSPORT_SRC,
     G_ADD_PRIVATE (KmsWebrtcTransportSrcNice));
+
+
+
+static gboolean
+gst_buffer_is_dtls (GstBuffer *buffer)
+{
+  guint8 first_byte;
+
+  if (gst_buffer_get_size (buffer) == 0) {
+    GST_DEBUG ("Ignoring buffer with size 0");
+    return FALSE;
+  }
+
+  if (gst_buffer_extract (buffer, 0, &first_byte, 1) != 1) {
+    GST_WARNING ("Could not extract first byte from buffer");
+    return FALSE;
+  }
+
+  return PACKET_IS_DTLS (first_byte);
+}
+
+// Stores DTLS buffers for later use.
+// `buffer` is unref and set to NULL only if stored; otherwise left as-is.
+static gboolean
+store_pending_dtls_buffer (GstBuffer **buffer, guint idx, gpointer user_data)
+{
+  if (gst_buffer_is_dtls (buffer)) {
+    KmsWebrtcTransportSrcNice *self = KMS_WEBRTC_TRANSPORT_SRC_NICE (user_data);
+
+    GST_DEBUG_OBJECT (self, "Storing DTLS buffer until ICE is CONNECTED");
+    self->priv->pending_buffers = g_list_append (self->priv->pending_buffers, *buffer);
+
+    // Side effect: Unref and remove the buffer from its buffer list, if any.
+    gst_buffer_unref (*buffer);
+    *buffer = NULL;
+  }
+
+  return TRUE;
+}
+
+
 
 static void
 kms_webrtc_transport_src_nice_init (KmsWebrtcTransportSrcNice * self)
@@ -179,27 +224,29 @@ append_pending_buffer (GstBuffer **buffer, guint idx, gpointer user_data)
   return TRUE;
 }
 
-
+// Store DTLS buffers for later delivery when ICE gets to CONNECTED.
 static GstPadProbeReturn
-kms_webrtc_transport_src_nice_block_till_ice_connected (GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
+kms_webrtc_transport_src_nice_block_dtls_until_ice_connected (GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
   KmsWebrtcTransportSrcNice *self = KMS_WEBRTC_TRANSPORT_SRC_NICE(user_data);
+  GstPadProbeReturn ret = GST_PAD_PROBE_OK;
 
   KMS_WEBRTC_TRANSPORT_SRC_NICE_LOCK (self);
-  if (self->priv->pending_buffers_delivered){
+  if (self->priv->pending_buffers_delivered) {
     KMS_WEBRTC_TRANSPORT_SRC_NICE_UNLOCK (self);
     GST_DEBUG_OBJECT (self, "No more possible buffers pending, removing probe");
     return GST_PAD_PROBE_REMOVE;
   }
 
-  if (GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_BUFFER ) {
-    // Cache buffer for later delivery when ICE gets to CONNECTED
+  if (GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_BUFFER) {
     GstBuffer *buffer = gst_pad_probe_info_get_buffer (info);
 
-    //buffer = gst_buffer_ref (buffer);
     if (buffer != NULL) {
-      append_pending_buffer (&buffer, 0, self);
-      GST_DEBUG_OBJECT (self, "Added buffer to be delivered when ICE gets CONNECTED, probably a DTLS connection handshake packet");
+      store_pending_dtls_buffer (&buffer, 0, self);
+
+      if (buffer == NULL) {
+        ret = GST_PAD_PROBE_HANDLED;
+      }
     }
   }
 
@@ -207,13 +254,16 @@ kms_webrtc_transport_src_nice_block_till_ice_connected (GstPad *pad, GstPadProbe
     GstBufferList *buffer_list = gst_pad_probe_info_get_buffer_list (info);
 
     if (buffer_list != NULL) {
-      gst_buffer_list_foreach (buffer_list, append_pending_buffer, self);
-      GST_DEBUG_OBJECT (self, "Added buffer list to be delivered when ICE gets CONNECTED, probably a DTLS conneciton handshake packet");
+      gst_buffer_list_foreach (buffer_list, store_pending_dtls_buffer, self);
+
+      if (gst_buffer_list_length (buffer_list) == 0) {
+        ret = GST_PAD_PROBE_HANDLED;
+      }
     }
   }
   KMS_WEBRTC_TRANSPORT_SRC_NICE_UNLOCK (self);
 
-  return GST_PAD_PROBE_HANDLED;
+  return ret;
 }
 
 
@@ -237,7 +287,7 @@ kms_webrtc_transport_src_nice_set_dtls_is_client (KmsWebrtcTransportSrc * src,
     GstPad *nicesrc_src = gst_element_get_static_pad (src->src, "src");
 
     gst_pad_add_probe (nicesrc_src, GST_PAD_PROBE_TYPE_BUFFER | GST_PAD_PROBE_TYPE_BUFFER_LIST,  
-                      kms_webrtc_transport_src_nice_block_till_ice_connected, src, NULL);
+                      kms_webrtc_transport_src_nice_block_dtls_until_ice_connected, src, NULL);
     gst_object_unref (nicesrc_src);
   }
  
