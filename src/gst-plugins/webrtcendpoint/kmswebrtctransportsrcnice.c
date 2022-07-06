@@ -85,7 +85,7 @@ gst_buffer_is_dtls (GstBuffer *buffer)
 static gboolean
 store_pending_dtls_buffer (GstBuffer **buffer, guint idx, gpointer user_data)
 {
-  if (gst_buffer_is_dtls (buffer)) {
+  if (gst_buffer_is_dtls (*buffer)) {
     KmsWebrtcTransportSrcNice *self = KMS_WEBRTC_TRANSPORT_SRC_NICE (user_data);
 
     GST_DEBUG_OBJECT (self, "Storing DTLS buffer until ICE is CONNECTED");
@@ -214,16 +214,6 @@ kms_webrtc_transport_src_nice_configure (KmsWebrtcTransportSrc * self,
     G_CALLBACK (kms_webrtc_transport_src_nice_component_state_changed), self);
 }
 
-static gboolean
-append_pending_buffer (GstBuffer **buffer, guint idx, gpointer user_data)
-{
-  KmsWebrtcTransportSrcNice *self = KMS_WEBRTC_TRANSPORT_SRC_NICE (user_data);
-
-  self->priv->pending_buffers = g_list_append (self->priv->pending_buffers, *buffer);
-
-  return TRUE;
-}
-
 // Store DTLS buffers for later delivery when ICE gets to CONNECTED.
 static GstPadProbeReturn
 kms_webrtc_transport_src_nice_block_dtls_until_ice_connected (GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
@@ -242,6 +232,7 @@ kms_webrtc_transport_src_nice_block_dtls_until_ice_connected (GstPad *pad, GstPa
     GstBuffer *buffer = gst_pad_probe_info_get_buffer (info);
 
     if (buffer != NULL) {
+      gst_buffer_ref (buffer);
       store_pending_dtls_buffer (&buffer, 0, self);
 
       if (buffer == NULL) {
