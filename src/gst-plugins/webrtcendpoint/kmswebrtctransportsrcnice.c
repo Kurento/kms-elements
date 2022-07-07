@@ -91,8 +91,7 @@ store_pending_dtls_buffer (GstBuffer **buffer, guint idx, gpointer user_data)
     GST_DEBUG_OBJECT (self, "Storing DTLS buffer until ICE is CONNECTED");
     self->priv->pending_buffers = g_list_append (self->priv->pending_buffers, *buffer);
 
-    // Side effect: Unref and remove the buffer from its buffer list, if any.
-    gst_buffer_unref (*buffer);
+    // Side effect: Remove the buffer from its buffer list, if any.
     *buffer = NULL;
   }
 
@@ -129,7 +128,6 @@ kms_webrtc_transport_src_nice_send_pending_buffer (GstBuffer *buffer, KmsWebrtcT
   GstPad *nicesrc_src = gst_element_get_static_pad (self->src, "src");
 
   if (gst_pad_push (nicesrc_src, buffer) == GST_FLOW_ERROR ) {
-    gst_buffer_unref (buffer);
     GST_INFO_OBJECT (self, "Cannot deliver delayed buffer");
   } else {
     GST_DEBUG_OBJECT (self, "Delivered delayed buffer");
@@ -232,7 +230,6 @@ kms_webrtc_transport_src_nice_block_dtls_until_ice_connected (GstPad *pad, GstPa
     GstBuffer *buffer = gst_pad_probe_info_get_buffer (info);
 
     if (buffer != NULL) {
-      gst_buffer_ref (buffer);
       store_pending_dtls_buffer (&buffer, 0, self);
 
       if (buffer == NULL) {
