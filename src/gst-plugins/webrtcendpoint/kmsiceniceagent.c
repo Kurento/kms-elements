@@ -445,8 +445,14 @@ kms_ice_nice_agent_add_stream (KmsIceBaseAgent * self, const char *stream_id,
   }
 
   if (nice_agent->priv->qos_dscp >= 0) {
+    gint tos;
+
     GST_LOG_OBJECT (self, "Setting DSCP tag %d for stream %u - %s", nice_agent->priv->qos_dscp, id, stream_id);
-    nice_agent_set_stream_tos (nice_agent->priv->agent, id, nice_agent->priv->qos_dscp);
+    
+    /* Extract and shift 6 bits of DSFIELD */
+    tos = (nice_agent->priv->qos_dscp & 0x3f) << 2;
+
+    nice_agent_set_stream_tos (nice_agent->priv->agent, id, tos);
   }
 
   // NOTE: Docs say [0] that an I/O callback must be registered in order to receive
