@@ -570,6 +570,14 @@ get_dscp_value (std::shared_ptr<DSCPValue> qosDscp)
     return 10;
   case DSCPValue::DATA_HIGH:
     return 18;
+  case DSCPValue::CHROME_HIGH:
+    return 56;
+  case DSCPValue::CHROME_MEDIUM:
+    return 56;
+  case DSCPValue::CHROME_LOW:
+    return 0;
+  case DSCPValue::CHROME_VERYLOW:
+    return 8;
   default:
     return -1;
   }

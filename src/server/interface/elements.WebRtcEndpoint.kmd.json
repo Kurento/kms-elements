@@ -951,6 +951,10 @@ This could also happen in the middle of a session, though not likely.
         "DATA_LOW",                 //  DF (0)
         "DATA_MEDIUM",              //  AF11 (10)
         "DATA_HIGH",                //  AF21 (18)
+        "CHROME_HIGH",              // CS7 (56)
+        "CHROME_MEDIUM",            // CS7 (56)
+        "CHROME_LOW",               // CS0 (0)
+        "CHROME_VERYLOW",           // CS1 (8)
         "CS0",      //   0
         "CS1",      //   8        
         "CS2",      //  16
@@ -1005,6 +1009,8 @@ This could also happen in the middle of a session, though not likely.
       <p>
       Apart from the WebRTC recommended values, we also include all possible values are referenced in http://www.iana.org/assignments/dscp-registry/dscp-registry.xml of course some of 
       those values are synomims for the WebRTC recommended ones, they are included mainly for completeness
+      <p>
+      And as a last point, we include a shorthand for Chrome supported markings for low  (CS0), very low (CS1), medium (CS7) and high (CS7) priorities in priority property for RTCRtpSender parameters. See https://developer.mozilla.org/en-US/docs/Web/API/RTCRtpSender/setParameters
       <p>
       This only covers outgoing network packets form KMS, to complete the solution, DSCP must be also requested on client, unfortunatelly for traffic on the other direction, this must be requested to the 
       browser or client. On browser, the client application needs to use the following API https://www.w3.org/TR/webrtc-priority/"
