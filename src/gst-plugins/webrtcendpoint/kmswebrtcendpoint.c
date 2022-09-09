@@ -845,7 +845,7 @@ kms_webrtc_endpoint_class_init (KmsWebrtcEndpointClass * klass)
 
   g_object_class_install_property (gobject_class, PROP_QOS_DSCP,
       g_param_spec_int ("qos-dscp",
-          "QoS DSCP", "Set to assign DSCP value for network traffice sent",
+          "QoS DSCP", "Set to assign DSCP value for network traffic sent",
 		  -1, G_MAXINT, DEFAULT_QOS_DSCP,
 		  G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 

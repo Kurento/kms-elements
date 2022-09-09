@@ -511,10 +511,10 @@
               "doc": "DSCP value to be used in network traffic sent from this endpoint
               <p>
               If this parameter is present with a value different to NO_VALUE, all traffic sent from this WebRTCEndpoint will be marked with the correspondent
-              DSCP value according to the DiffServ architecture. This may provide beter handling of network traffic according to its characteristics associated to 
-              its DSCP value. This better handling include priority in forwarding traffic and probablity of packet drop in case of network congestion.
+              DSCP value according to the DiffServ architecture. This may provide better handling of network traffic according to its characteristics associated to 
+              its DSCP value. This better handling includes priority in forwarding traffic and probablity of packet drop in case of network congestion.
               <p>
-              It must be taken into account that on Internet not all intermediate routers ar guaranteed to enforce those DSCP values, even it is possible that 
+              It must be taken into account that on Internet not all intermediate routers are guaranteed to enforce those DSCP values, even it is possible that 
               certain routers just block traffic marked with specific DSCP values, as discussed here https://datatracker.ietf.org/doc/html/rfc8835#section-4.2.
               <p> 
               So, this feature must be managed with care and is mostly intended for private networks, where the network proprietor can configure and guarantee 
@@ -983,7 +983,7 @@ This could also happen in the middle of a session, though not likely.
       "doc": "Possible DSCP values 
       <p>
       WebRTC recommended values are taken from RFC 8837 https://datatracker.ietf.org/doc/html/rfc8837#section-5 , These are the values from AUDIO_VERYLOW to DATA_HIGH. First element in the 
-      name indicates kind of traffic that it should apply to, the second indicates relative prioriy. For video, a third field would indicate if the traffic is intended for high throughput or not.
+      name indicates kind of traffic that it should apply to, the second indicates relative priority. For video, a third field would indicate if the traffic is intended for high throughput or not.
       As indicated on RFC 8837 section 5 diagram:
 
           +=======================+==========+=====+============+============+
@@ -1008,11 +1008,11 @@ This could also happen in the middle of a session, though not likely.
       As indicated also in RFC, non interactive video is not considered
       <p>
       Apart from the WebRTC recommended values, we also include all possible values are referenced in http://www.iana.org/assignments/dscp-registry/dscp-registry.xml of course some of 
-      those values are synomims for the WebRTC recommended ones, they are included mainly for completeness
+      those values are synonyms for the WebRTC recommended ones, they are included mainly for completeness
       <p>
       And as a last point, we include a shorthand for Chrome supported markings for low  (CS0), very low (CS1), medium (CS7) and high (CS7) priorities in priority property for RTCRtpSender parameters. See https://developer.mozilla.org/en-US/docs/Web/API/RTCRtpSender/setParameters
       <p>
-      This only covers outgoing network packets form KMS, to complete the solution, DSCP must be also requested on client, unfortunatelly for traffic on the other direction, this must be requested to the 
+      This only covers outgoing network packets from KMS, to complete the solution, DSCP must be also requested on client, unfortunately for traffic on the other direction, this must be requested to the 
       browser or client. On browser, the client application needs to use the following API https://www.w3.org/TR/webrtc-priority/"
     }
   ]
