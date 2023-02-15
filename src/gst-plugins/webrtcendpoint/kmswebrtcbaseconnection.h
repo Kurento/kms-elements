@@ -80,7 +80,7 @@ GType kms_webrtc_base_connection_get_type (void);
 gchar *kms_webrtc_base_connection_get_certificate_pem (KmsWebRtcBaseConnection *
     self);
 void kms_webrtc_base_connection_set_network_ifs_info (KmsWebRtcBaseConnection *
-    self, const gchar * net_names);
+    self, const gchar * net_names, const gchar * ip_ignore_list);
 void kms_webrtc_base_connection_set_ice_tcp (KmsWebRtcBaseConnection *self,
     gboolean ice_tcp);
 void kms_webrtc_base_connection_set_stun_server_info (KmsWebRtcBaseConnection * self,

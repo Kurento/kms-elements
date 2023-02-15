@@ -59,6 +59,9 @@ public:
   std::string getNetworkInterfaces () override;
   void setNetworkInterfaces (const std::string &networkInterfaces) override;
 
+  std::string getIpIgnoreList () override;
+  void setIpIgnoreList (const std::string &ipIgnoreList) override;
+
   bool getIceTcp () override;
   void setIceTcp (bool iceTcp) override;
 

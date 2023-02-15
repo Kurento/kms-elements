@@ -55,6 +55,7 @@ G_DEFINE_TYPE (KmsWebrtcEndpoint, kms_webrtc_endpoint,
 #define DEFAULT_STUN_TURN_URL NULL
 #define DEFAULT_PEM_CERTIFICATE NULL
 #define DEFAULT_NETWORK_INTERFACES NULL
+#define DEFAULT_IP_IGNORE_LIST NULL
 #define DEFAULT_EXTERNAL_ADDRESS NULL
 #define DEFAULT_EXTERNAL_IPV4 NULL
 #define DEFAULT_EXTERNAL_IPV6 NULL
@@ -69,6 +70,7 @@ enum
   PROP_TURN_URL,                /* user:password@address:port?transport=[udp|tcp|tls] */
   PROP_PEM_CERTIFICATE,
   PROP_NETWORK_INTERFACES,
+  PROP_IP_IGNORE_LIST,
   PROP_EXTERNAL_ADDRESS,
   PROP_EXTERNAL_IPV4,
   PROP_EXTERNAL_IPV6,
@@ -106,6 +108,7 @@ struct _KmsWebrtcEndpointPrivate
   gchar *turn_url;
   gchar *pem_certificate;
   gchar *network_interfaces;
+  gchar *ip_ignore_list;
   gchar *external_address;
   gchar *external_ipv4;
   gchar *external_ipv6;
@@ -341,6 +344,8 @@ kms_webrtc_endpoint_create_session_internal (KmsBaseSdpEndpoint * base_sdp,
       webrtc_sess, "pem-certificate", G_BINDING_DEFAULT);
   g_object_bind_property (self, "network-interfaces",
       webrtc_sess, "network-interfaces", G_BINDING_DEFAULT);
+  g_object_bind_property (self, "ip-ignore-list",
+      webrtc_sess, "ip-ignore-list", G_BINDING_DEFAULT);
   g_object_bind_property (self, "external-address",
       webrtc_sess, "external-address", G_BINDING_DEFAULT);
   g_object_bind_property (self, "external-ipv4",
@@ -355,6 +360,7 @@ kms_webrtc_endpoint_create_session_internal (KmsBaseSdpEndpoint * base_sdp,
       "turn-url", self->priv->turn_url,
       "pem-certificate", self->priv->pem_certificate,
       "network-interfaces", self->priv->network_interfaces,
+      "ip-ignore-list", self->priv->ip_ignore_list,
       "external-address", self->priv->external_address,
       "external-ipv4", self->priv->external_ipv4,
       "external-ipv6", self->priv->external_ipv6,
@@ -533,6 +539,10 @@ kms_webrtc_endpoint_set_property (GObject * object, guint prop_id,
       g_free (self->priv->network_interfaces);
       self->priv->network_interfaces = g_value_dup_string (value);
       break;
+    case PROP_IP_IGNORE_LIST:
+      g_free (self->priv->ip_ignore_list);
+      self->priv->ip_ignore_list = g_value_dup_string (value);
+      break;
     case PROP_EXTERNAL_ADDRESS:
       g_free (self->priv->external_address);
       self->priv->external_address = g_value_dup_string (value);
@@ -582,6 +592,9 @@ kms_webrtc_endpoint_get_property (GObject * object, guint prop_id,
       break;
     case PROP_NETWORK_INTERFACES:
       g_value_set_string (value, self->priv->network_interfaces);
+      break;
+    case PROP_IP_IGNORE_LIST:
+      g_value_set_string (value, self->priv->ip_ignore_list);
       break;
     case PROP_EXTERNAL_ADDRESS:
       g_value_set_string (value, self->priv->external_address);
@@ -634,6 +647,7 @@ kms_webrtc_endpoint_finalize (GObject * object)
   g_free (self->priv->turn_url);
   g_free (self->priv->pem_certificate);
   g_free (self->priv->network_interfaces);
+  g_free (self->priv->ip_ignore_list);
   g_free (self->priv->external_address);
   g_free (self->priv->external_ipv4);
   g_free (self->priv->external_ipv6);
@@ -819,6 +833,12 @@ kms_webrtc_endpoint_class_init (KmsWebrtcEndpointClass * klass)
           "Local network interfaces used for ICE gathering",
           DEFAULT_NETWORK_INTERFACES, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class, PROP_IP_IGNORE_LIST,
+      g_param_spec_string ("ip-ignore-list",
+          "ipIgnoreList",
+          "IPs to be ignored during libnice's gathering phase",
+          DEFAULT_IP_IGNORE_LIST, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (gobject_class, PROP_EXTERNAL_ADDRESS,
       g_param_spec_string ("external-address",
           "externalAddress",
@@ -982,6 +1002,7 @@ kms_webrtc_endpoint_init (KmsWebrtcEndpoint * self)
   self->priv->turn_url = DEFAULT_STUN_TURN_URL;
   self->priv->pem_certificate = DEFAULT_PEM_CERTIFICATE;
   self->priv->network_interfaces = DEFAULT_NETWORK_INTERFACES;
+  self->priv->ip_ignore_list = DEFAULT_IP_IGNORE_LIST;
   self->priv->external_address = DEFAULT_EXTERNAL_ADDRESS;
   self->priv->external_ipv4 = DEFAULT_EXTERNAL_IPV4;
   self->priv->external_ipv6 = DEFAULT_EXTERNAL_IPV6;
